@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=hmach
+#SBATCH --job-name=M1.5_Re100
 #SBATCH --time=10:00:00
 #SBATCH --ntasks=48
 ##SBATCH --partition=cfarhat

@@ -4,3 +4,12 @@ embeddedSurface.top
 mesh.png
 __pycache__/
 .venv/
+
+# AERO-F preprocessing and run outputs
+aerof/data/
+*.dec.*
+aerof/runs/*/results/
+aerof/runs/*/references/
+aerof/runs/*/postpro/
+log.out
+*.exo
