@@ -2,12 +2,12 @@
 Set up AERO-F run directories for the quasi-2D embedded cylinder.
 
 For each (Mach, Re) case this creates aerof/runs/M<Mach>_Re<Re>/ containing
-  FluidFile      copy of FluidFile.template with only the freestream and time lines
+  FluidFile      copy of FluidFile_template with only the freestream and time lines
                  replaced (see substitutions())
-  run.sh, run.sbatch, clean.sh, postpro.sh   copied from runTemplate/
+  run.sh, run.sbatch, clean.sh, postpro.sh, postpro.sbatch   copied from runTemplate/
   results/ references/ postpro/              empty output directories
 
-Everything else about the solver setup lives in FluidFile.template and is edited by
+Everything else about the solver setup lives in FluidFile_template and is edited by
 hand there.
 
 The run is Dimensional (SI units). The freestream state is set from Mach, Re and a
@@ -33,12 +33,12 @@ import cylMeshGen as mesh
 cases = [          # (Mach, Reynolds number based on D); add entries for a sweep
     (1.5, 100),
 ]
-overwrite = False  # True: rewrite FluidFile and scripts of existing run directories
+overwrite = True  # True: rewrite FluidFile and scripts of existing run directories
                    # (outputs in results/ references/ postpro/ are left alone)
 
 aerofDir = os.path.dirname(os.path.abspath(__file__))
 runsDir = os.path.join(aerofDir, 'runs')                  # one subdirectory per case
-templateFile = os.path.join(aerofDir, 'FluidFile.template')
+templateFile = os.path.join(aerofDir, 'FluidFile_template')
 templateDir = os.path.join(aerofDir, 'runTemplate')       # run scripts to copy
 
 # Freestream gas
@@ -50,7 +50,7 @@ S_suth = 110.4          # Sutherland reference temperature [K]      (check vs AE
 
 # Time, in convective units D/U
 dt_conv = 0.02          # time step
-tEnd_conv = 300.0       # final time (transient + collection window)
+tEnd_conv = 10.0       # final time (transient + collection window)
 
 
 # ============= Freestream state =====================================================
@@ -114,10 +114,10 @@ def fillTemplate(text, subs, info):
         out.append(line)
     bad = [f'{"/".join(p)}/{key} (found {n})' for (p, key), n in counts.items() if n != 1]
     if bad:
-        raise ValueError('FluidFile.template: expected exactly one of ' + ', '.join(bad))
+        raise ValueError('FluidFile_template: expected exactly one of ' + ', '.join(bad))
     text = '\n'.join(out) + '\n'
     if text.count('// CASE-INFO\n') != 1:
-        raise ValueError('FluidFile.template: expected one "// CASE-INFO" header line')
+        raise ValueError('FluidFile_template: expected one "// CASE-INFO" header line')
     return text.replace('// CASE-INFO\n', info + '\n')
 
 
@@ -133,11 +133,12 @@ def setupRun(mach, Re):
 
     for f in os.listdir(templateDir):
         shutil.copy2(os.path.join(templateDir, f), runDir)  # keeps the executable bit
-    sbatch = os.path.join(runDir, 'run.sbatch')
-    with open(sbatch) as fh:
-        text = fh.read()
-    with open(sbatch, 'w') as fh:
-        fh.write(text.replace('--job-name=CASE', f'--job-name={name}'))
+    for sbatch in ('run.sbatch', 'postpro.sbatch'):
+        sbatch = os.path.join(runDir, sbatch)
+        with open(sbatch) as fh:
+            text = fh.read()
+        with open(sbatch, 'w') as fh:
+            fh.write(text.replace('--job-name=CASE', f'--job-name={name}'))
 
     with open(templateFile) as fh:
         text = fh.read()

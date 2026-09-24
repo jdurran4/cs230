@@ -5,7 +5,7 @@
 // Case M1.5_Re100: Mach = 1.5, Re_D = 100   (written by newRun.py)
 //   D = 1 m, T = 288.15 K, a = 340.322 m/s, U = 510.483 m/s
 //   mu = 1.78938e-05 Pa s, rho = 3.50527e-06 kg/m^3, p = 0.289983 Pa
-//   D/U = 0.00195893 s, dt = 0.02 D/U, tEnd = 300 D/U
+//   D/U = 0.00195893 s, dt = 0.02 D/U, tEnd = 10 D/U
 
 under Problem {
     Type      = Unsteady;
@@ -153,9 +153,9 @@ under Space {
 
 under Time {
     Type = Implicit;
-    MaxIts = 15010;
+    MaxIts = 510;
     TimeStep = 3.9178590764e-05;
-    MaxTime = 5.8767886146e-01;
+    MaxTime = 1.9589295382e-02;
     under Implicit {
         Type = BackwardEuler;
         MatrixVectorProduct = FiniteDifference;
