@@ -20,8 +20,9 @@ under Input {
 // (cylinder center xc, yc = -3.3, 0.1; D = 1; dz = 0.833333; cylinder FaceID = 7).
 under AdaptiveMeshRefinement {
 
-    // Shock standoff and wake region: capsule from 1.5 D upstream of the cylinder
-    // center, extending 10 D downstream along +x
+    // Bow shock and wake region: capsule of radius 2 D whose axis runs along +x from
+    // 1.5 D upstream of the cylinder center to 10 D downstream (rounded ends reach
+    // ~3.5 D upstream; bow shock standoff at M1.5 is ~1.5 D ahead of the surface)
     under SelectionCriterion[0] {
         Type = APriori;
         PreRefine = On;
@@ -36,7 +37,7 @@ under AdaptiveMeshRefinement {
                 Normal_x = 1;
                 Normal_y = 0;
                 Normal_z = 0;
-                Radius = 1.5;
+                Radius = 2.0;
                 Length = 11.5;
             }
         }
@@ -57,24 +58,30 @@ under AdaptiveMeshRefinement {
         NumLevels = 15;
     }
 
+    InitializeRefinementTag = On;
+    Frequency = 10000;
     Mode = NonDimensional;
     BalancingCriterion = ElemMaxMinRatio;
     BalancingThreshold = 1.05;
     BalancingWeight = 2;
-    ImbalanceTolerance = 1.0001;
+    ImbalanceTolerance = 1.05;
     MaximumRefinementIterations = 1000;
     MaximumCoarseningIterations = 1000;
-    ItrFactor = 10000.0;
-    UniformityThreshold = 0.90;
+    ItrFactor = 1000.0;
+    UniformityThreshold = 0.05;
     UniformityThresholdType = MinMax;
-    MaximumNumberOfElements = 600000000;
-    BisectionStrategy = Isotropic;
+    MaximumNumberOfElements = 1000000;
+    // Quasi-2D: Refine3D = 0 (undocumented, from lab) refines only in the plane normal
+    // to z (the default normal), so edges spanning the one-cell z thickness are not split
+    Refine3D = 0;
+    BisectionStrategy = Arbitrary;
     ConsistentNumbering = On;
-    RecomputeWallDistance = 2;
+    RecomputeWallDistance = 0;
 }
 
 under Output {
     under Postpro {
+        PostprocessSides = 1;
         Prefix = "./results/";
         Mach = "Mach";
         Pressure = "Pressure";
@@ -85,7 +92,7 @@ under Output {
         Frequency = 25;
     }
     under Restart {
-        Frequency = 25;
+        Frequency = 100;
         Prefix = "./references/";
         Solution = "Solution";
         RestartData = "RestartData";
@@ -135,9 +142,9 @@ under BoundaryConditions {
 under Space {
     under NavierStokes {
         Flux              = HLLC;
-        Reconstruction    = Constant;
-        //AdvectiveOperator = FiniteVolume; relevant only if linear reconstruction is used
-        //Limiter           = Venkatakrishnan; relevant only if linear reconstruction is used
+        Reconstruction    = Linear;
+        AdvectiveOperator = FiniteVolume;
+        Limiter           = Venkatakrishnan;
         Gradient          = LeastSquares;
         Dissipation       = SecondOrder;
         Beta              = 0.5;
@@ -154,12 +161,12 @@ under Time {
     TimeStep = 2e-05;
     MaxTime = 0.5;
     under Implicit {
-        Type = BackwardEuler;
+        Type = RungeKutta2;   // 2-stage, 2nd-order DIRK
         MatrixVectorProduct = FiniteDifference;
         under Newton {
             MaxIts = 20;
             Eps = 0.001;
-            //FailSafe = AlwaysOn; relevant only if linear reconstruction is used
+            FailSafe = AlwaysOn;   // fall back to first order where Newton fails (linear reconstruction)
             under LinearSolver {
                 under NavierStokes {
                     Type = Gmres;

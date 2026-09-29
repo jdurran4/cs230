@@ -49,8 +49,8 @@ C_suth = 1.458e-6       # Sutherland constant [kg/(m s K^0.5)]      (check vs AE
 S_suth = 110.4          # Sutherland reference temperature [K]      (check vs AERO-F)
 
 # Time, in convective units D/U
-dt_conv = 0.02          # time step
-tEnd_conv = 10.0       # final time (transient + collection window)
+dt_conv = 0.0255        # time step (~5e-5 s at M1.5, Re100)
+tEnd_conv = 100.0      # final time (transient + collection window)
 
 
 # ============= Freestream state =====================================================
