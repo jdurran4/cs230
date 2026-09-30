@@ -88,7 +88,8 @@ under Output {
         Density = "Density";
         Velocity = "Velocity";
         Temperature = "Temperature";
-        LiftandDrag = "LiftandDrag";
+        LiftandDrag = "../postpro/LiftandDrag";
+        EmbeddedSurfaceForce = "../postpro/EmbeddedSurfaceForce";
         Frequency = 25;
     }
     under Restart {
