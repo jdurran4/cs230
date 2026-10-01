@@ -227,7 +227,7 @@ under Space {
 under Time {
     Type = Implicit;
     MaxIts = 1000;
-    Eps = 1e-8;
+    Eps = 1e-5;          // relative residual; MaxIts is set by newRun.steadyMaxIts
     under CflLaw {
         Strategy = Hybrid;
         Cfl0 = 1;

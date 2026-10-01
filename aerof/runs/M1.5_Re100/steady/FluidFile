@@ -13,7 +13,7 @@
 // Case M1.5_Re100, stage steady: Mach = 1.5, Re_D = 100   (written by newRun.py)
 //   D = 1 m, T = 288.15 K, a = 340.322 m/s, U = 510.483 m/s
 //   mu = 1.78848e-05 Pa s, rho = 3.50351e-06 kg/m^3, p = 0.289838 Pa
-//   D/U = 0.00195893 s, steady, MaxIts = 1000
+//   D/U = 0.00195893 s, steady, MaxIts = 500
 
 under Problem {
     Type      = Steady;
@@ -216,8 +216,8 @@ under Space {
 // Steady: local time stepping with a CFL ramp (lab CapsuleSteady settings).
 under Time {
     Type = Implicit;
-    MaxIts = 1000;
-    Eps = 1e-8;
+    MaxIts = 500;
+    Eps = 1e-5;          // relative residual; MaxIts is set by newRun.steadyMaxIts
     under CflLaw {
         Strategy = Hybrid;
         Cfl0 = 1;

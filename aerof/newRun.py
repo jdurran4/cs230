@@ -16,6 +16,10 @@ postpro/. The case directory also gets runChain.sh, which runs steady/ then the
 production run with the same NP (the production stage reads the refined mesh, which
 has a CPU map only for the NP the steady stage ran with):
     runs/<case>/runChain.sh NP
+Only cases listed in unsteadyCases continue to the production stage; the others stop
+after steady/ (the steady solution is the data sample: binTargets/binInputs stage =
+'steady'). The production FluidFile is written either way, so ./run.sh NP can run it
+later.
 
 Everything else about the solver setup lives in FluidFile_template and is edited by
 hand there.
@@ -43,6 +47,8 @@ import cylMeshGen as mesh
 cases = [          # (Mach, Reynolds number based on D); add entries for a sweep
     (1.5, 100),
 ]
+unsteadyCases = [  # cases (also listed in `cases`) whose runChain.sh continues to the
+]                  # unsteady production stage; the others stop after steady/
 overwrite = True  # True: rewrite FluidFile and scripts of existing run directories
                    # (outputs in results/ references/ postpro/ are left alone)
 
@@ -60,7 +66,7 @@ C_suth = 1.458e-6       # Sutherland constant [kg/(m s K^0.5)] (AERO-F default)
 S_suth = 110.6          # Sutherland reference temperature [K] (AERO-F default, IoDataCore.C)
 
 # Steady stage
-steadyMaxIts = 1000     # pseudo-time iterations (stops earlier at Time/Eps in template)
+steadyMaxIts = 500      # pseudo-time iterations (stops earlier at Time/Eps in template)
 
 # Production (unsteady) stage, in convective units D/U. It starts from the steady
 # solution: a steady case only needs to show nothing grows; a shedding case needs the
@@ -217,7 +223,13 @@ def setupRun(mach, Re):
     setupStage(os.path.join(runDir, 'steady'), 'steady', f'{name}_steady', runDir, mach, Re)
     setupStage(runDir, 'unsteady', name, runDir, mach, Re)
 
-    shutil.copy2(os.path.join(templateDir, 'runChain.sh'), runDir)
+    with open(os.path.join(templateDir, 'runChain.sh')) as fh:
+        text = fh.read()
+    chain = os.path.join(runDir, 'runChain.sh')
+    with open(chain, 'w') as fh:
+        fh.write(text.replace('RUN_UNSTEADY=1',
+                              f'RUN_UNSTEADY={int((mach, Re) in unsteadyCases)}'))
+    os.chmod(chain, 0o755)
 
     fs = freestream(mach, Re)
     print(f'Wrote runs/{name} (+ steady/): U = {fs["U"]:.4g} m/s, rho = {fs["rho"]:.4g} kg/m^3, '

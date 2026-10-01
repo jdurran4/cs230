@@ -8,10 +8,15 @@
 #   Workstation:  ./runChain.sh [NP]           (default 8)
 cd "$(dirname "$0")"
 NP=${SLURM_NTASKS:-${1:-8}}
+RUN_UNSTEADY=1                                 # written by newRun.py (unsteadyCases)
 
 if [ steady/DONE -nt steady/FluidFile ]; then
     echo "steady/ already done: skipping"
 else
     steady/run.sh $NP || exit 1
 fi
-./run.sh $NP
+if [ $RUN_UNSTEADY -eq 1 ]; then
+    ./run.sh $NP
+else
+    echo "Steady-only case: stopping after steady/ (./run.sh $NP runs the production stage)"
+fi

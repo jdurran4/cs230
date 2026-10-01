@@ -13,12 +13,16 @@ Pipeline (see README):
 
 Freestream p, rho and Mach are read from the run's FluidFile (BoundaryConditions/Inlet).
 
-Writes runs/<run>/targets.npz with
+Writes <stage dir>/targets.npz with
   times (nt,), columns (ncol, 2) grid-point x-y, S (nt, ncol, 2) [N/m],
   Snd (nt, ncol, 2) = S / (q D), Srel (nt, ncol, 2) = the same without the p_inf term,
   pInf, rhoInf, mach, U, q, D, dz
 
-Usage: set runNames below (None = every run with postpro/EmbeddedSurfaceForce), then run.
+Writes into the stage directory: runs/<run>/steady/ for stage = 'steady' (one sample: the
+converged steady solution), runs/<run>/ for stage = 'unsteady' (every output step).
+
+Usage: set stage and runNames below (None = every run whose stage directory has
+postpro/EmbeddedSurfaceForce), then run.
 """
 import os
 import re
@@ -31,11 +35,16 @@ import cylMeshGen as mesh
 import newRun
 
 # ============= User-defined parameters ==============================================
+stage = 'steady'           # 'steady' (runs/<run>/steady/) or 'unsteady' (runs/<run>/)
 runNames = None
 nzSample = 64              # z samples per station for the dual-cell footprint
 
 aerofDir = os.path.dirname(os.path.abspath(__file__))
 runsDir = os.path.join(aerofDir, 'runs')
+
+
+def stageDir(runName):
+    return os.path.join(runsDir, runName, 'steady' if stage == 'steady' else '')
 
 
 # ============= Helpers ==============================================================
@@ -61,7 +70,7 @@ def stationNormals(xy):
 
 
 def binTargets(runName, nodes, tets, X):
-    runDir = os.path.join(runsDir, runName)
+    runDir = stageDir(runName)
     mach, rho, pInf = readInlet(os.path.join(runDir, 'FluidFile'))
     U = mach * np.sqrt(newRun.gamma * pInf / rho)
     q = 0.5 * rho * U ** 2
@@ -107,7 +116,7 @@ def binTargets(runName, nodes, tets, X):
 if __name__ == '__main__':
     names = runNames or sorted(
         r for r in os.listdir(runsDir)
-        if os.path.isfile(os.path.join(runsDir, r, 'postpro', 'EmbeddedSurfaceForce')))
+        if os.path.isfile(os.path.join(stageDir(r), 'postpro', 'EmbeddedSurfaceForce')))
     nodes, tets = bin1.readDomain(bin1.domainFile)
     X = chk.readSurfaceNodes(chk.surfFile)
     for name in names:

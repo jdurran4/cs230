@@ -18,14 +18,18 @@ Volume fraction is geometric: the body cross-section (disk) is sampled in x-y an
 assigned to columns with the same median-dual rule. The fine-mesh fluid volume is a
 cross-check, not used.
 
-Writes runs/<run>/inputs.npz with, for ALL coarse columns (ncol) and output times (nt):
+Writes <stage dir>/inputs.npz with, for ALL coarse columns (ncol) and output times (nt):
   times (nt,), columns (ncol, 2) grid-point x-y
   rho (nt, ncol), rhou (nt, ncol, 3), rhoE (nt, ncol)       averaged conserved variables
   u (nt, ncol, 2), p, T, M, ReD, flowAngle (nt, ncol)       derived from the averages
   fluidCentroid (nt, ncol, 2)                               x-y centroid of the fluid part
   Vcell, Vsolid, volFrac (ncol,), VfluidFine (nt, ncol)     geometry (m^3)
 
-Usage: set runNames below (None = every run with postpro/*.NNNN.xpost), then run.
+Reads and writes in the stage directory (see binTargets.stage, which this script uses):
+runs/<run>/steady/ or runs/<run>/.
+
+Usage: set binTargets.stage, and runNames below (None = every run whose stage directory
+has postpro/*.NNNN.xpost), then run.
 """
 import glob
 import os
@@ -33,6 +37,7 @@ import os
 import numpy as np
 
 import binOneCell as bin1
+import binTargets
 import cylMeshGen as mesh
 import newRun
 
@@ -126,7 +131,7 @@ def average(op, Wcol, q):
 
 # ============= Main per run =========================================================
 def binInputs(runName, nodes, tets):
-    runDir = os.path.join(runsDir, runName)
+    runDir = binTargets.stageDir(runName)
     post = os.path.join(runDir, 'postpro')
     colOf, columns, Vcell = coarseColumns(nodes, tets)
     ncol = len(columns)
@@ -173,7 +178,7 @@ def binInputs(runName, nodes, tets):
              VfluidFine=np.concatenate(acc['Vf']))
 
     # checks / summary
-    mach, rhoInf, pInf = __import__('binTargets').readInlet(os.path.join(runDir, 'FluidFile'))
+    mach, rhoInf, pInf = binTargets.readInlet(os.path.join(runDir, 'FluidFile'))
     far = np.argmin(np.linalg.norm(columns - [mesh.x0 - mesh.Lx / 2 + mesh.h, 0.0], axis=1))
     print(f'   solid: sum Vsolid = {Vsolid.sum():.5f}, pi D^2/4 dz = '
           f'{np.pi * mesh.D ** 2 / 4 * mesh.dz:.5f} m^3')
@@ -197,7 +202,7 @@ def binInputs(runName, nodes, tets):
 if __name__ == '__main__':
     names = runNames or sorted(
         r for r in os.listdir(runsDir)
-        if glob.glob(os.path.join(runsDir, r, 'postpro', '*.[0-9][0-9][0-9][0-9].xpost')))
+        if glob.glob(os.path.join(binTargets.stageDir(r), 'postpro', '*.[0-9][0-9][0-9][0-9].xpost')))
     nodes, tets = bin1.readDomain(bin1.domainFile)
     for name in names:
         binInputs(name, nodes, tets)
