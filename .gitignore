@@ -8,9 +8,9 @@ __pycache__/
 # AERO-F preprocessing and run outputs
 aerof/data/
 *.dec.*
-aerof/runs/*/results/
-aerof/runs/*/references/
-aerof/runs/*/postpro/
+aerof/runs/**/results/
+aerof/runs/**/references/
+aerof/runs/**/postpro/
 log.out
 log.postpro
 *.exo

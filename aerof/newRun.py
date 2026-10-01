@@ -105,6 +105,9 @@ def substitutions(stage, stageDir, caseDir, mach, Re):
         (('BoundaryConditions', 'Inlet'), 'Density'): f'{fs["rho"]:.10e}',
         (('BoundaryConditions', 'Inlet'), 'Pressure'): f'{fs["p"]:.10e}',
     }
+    for crit in ('SelectionCriterion[0]', 'SelectionCriterion[2]'):   # capsule regions
+        path = ('AdaptiveMeshRefinement', crit, 'RefinementDomain', 'Capsule')
+        subs[(path, 'Point_z')] = f'{mesh.dz / 2:.10g}'                # fluid mid-plane
     if stage == 'steady':
         subs[(('Time',), 'MaxIts')] = f'{steadyMaxIts}'
     else:

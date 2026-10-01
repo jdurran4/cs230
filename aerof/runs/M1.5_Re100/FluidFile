@@ -7,8 +7,9 @@
 //                                          refined mesh; production run
 // Lines between "// #if <stages>" and "// #else" / "// #endif" are kept only for the
 // listed stages. newRun.py also replaces this header and the `key = value;` lines it
-// owns (see newRun.substitutions): Problem/Type, Input paths, Inlet {Mach, Density,
-// Pressure}, Time {MaxIts, TimeStep, MaxTime}. Edit everything else by hand here.
+// owns (see newRun.substitutions): Problem/Type, Input paths, AMR capsule Point_z,
+// Inlet {Mach, Density, Pressure}, Time {MaxIts, TimeStep, MaxTime}. Edit everything
+// else by hand here.
 // Case M1.5_Re100, stage unsteady: Mach = 1.5, Re_D = 100   (written by newRun.py)
 //   D = 1 m, T = 288.15 K, a = 340.322 m/s, U = 510.483 m/s
 //   mu = 1.78848e-05 Pa s, rho = 3.50351e-06 kg/m^3, p = 0.289838 Pa
@@ -32,12 +33,19 @@ under Input {
 }
 
 // Refinement regions are in mesh coordinates; they must match cylMeshGen.py
-// (cylinder center xc, yc = -3.3, 0.1; D = 1; dz = 0.833333; cylinder FaceID = 7).
+// (cylinder center xc, yc = -3.3, 0.1; D = 1; cylinder FaceID = 7). Every Point_z is
+// written by newRun.py as the mid-plane dz/2 of the fluid layer.
+//
+// Steady stage: criteria [0] and [1] pre-refine at t = 0 (geometry only); the Hessian
+// criterion [2] then adapts to the flow every Frequency iterations of the steady solve.
+// Unsteady stage: Frequency = 0, so the steady stage's mesh is kept frozen (pre-refine
+// at t = 0 finds nothing left to refine): every snapshot is on one mesh.
 under AdaptiveMeshRefinement {
 
-    // Bow shock and wake region: capsule of radius 2 D whose axis runs along +x from
-    // 1.5 D upstream of the cylinder center to 10 D downstream (rounded ends reach
-    // ~3.5 D upstream; bow shock standoff at M1.5 is ~1.5 D ahead of the surface)
+    // Baseline bow shock and wake region: capsule of radius 2 D whose axis runs along +x
+    // from 1.5 D upstream of the cylinder center to 10 D downstream (rounded ends reach
+    // ~3.5 D upstream; bow shock standoff at M1.5 is ~1.5 D ahead of the surface).
+    // Keeps the wake resolved even if a case sheds after the steady stage.
     under SelectionCriterion[0] {
         Type = APriori;
         PreRefine = On;
@@ -48,7 +56,7 @@ under AdaptiveMeshRefinement {
             under Capsule {
                 Point_x = -4.8;
                 Point_y = 0.1;
-                Point_z = 0.416667;
+                Point_z = 0.05;
                 Normal_x = 1;
                 Normal_y = 0;
                 Normal_z = 0;
@@ -73,8 +81,39 @@ under AdaptiveMeshRefinement {
         NumLevels = 15;
     }
 
+    // Flow-adaptive: Hessian of the velocity (lab FSI_NAS CapsuleSteady settings), to
+    // sharpen the bow shock and shear layers below the baseline. Capsule of radius 4 D
+    // from 3 D upstream of the cylinder center to 12 D downstream, which contains the
+    // M1.5 bow shock (asymptotically the 42 deg Mach angle) out to |y - yc| = 4 D.
+    // Thresholds are a starting point: tune on the first runs.
+    under SelectionCriterion[2] {
+        Type = Hessian;
+        under HessianCriterion {
+            SensorType = Velocity;
+            Threshold = 1.0e-2;
+            HessianConstruction = LeastSquares;
+            CoarseningThreshold = 2.0e-3;
+        }
+        under RefinementDomain {
+            Type = Capsule;
+            under Capsule {
+                Point_x = -6.3;
+                Point_y = 0.1;
+                Point_z = 0.05;
+                Normal_x = 1;
+                Normal_y = 0;
+                Normal_z = 0;
+                Radius = 4.0;
+                Length = 15.0;
+            }
+        }
+        PreRefine = Off;     // needs a flow field
+        MinimumEdgeLength = 0.025;
+        NumLevels = 5;
+    }
+
     InitializeRefinementTag = On;
-    Frequency = 10000;
+    Frequency = 0;             // frozen mesh
     Mode = NonDimensional;
     BalancingCriterion = ElemMaxMinRatio;
     BalancingThreshold = 1.05;
@@ -92,7 +131,7 @@ under AdaptiveMeshRefinement {
     // coarse vertices across the layer (~0.75 m x-y skew, ~10% bottom/top pressure
     // mismatch in M1.5_Re100). Refine3D = 1 (default) also splits edges across the layer.
     Refine3D = 1;
-    BisectionStrategy = Arbitrary;
+    BisectionStrategy = Isotropic;
     ConsistentNumbering = On;
     RecomputeWallDistance = 0;
 }

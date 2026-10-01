@@ -36,7 +36,10 @@ xc, yc = -3.3, 0.1  # cylinder center
 Lx, Ly = 20.0, 20.0 # domain size in x and y, centered on (x0, y0)
 x0, y0 = 0.0, 0.0   # domain center
 h = D / 1.2           # coarse mesh spacing in x and y
-dz = h              # domain thickness (one cell in z)
+dz = 0.1            # domain thickness (one cell in z). Independent of h: the quasi-2D
+                    # physics does not depend on it, but AMR refines across it too
+                    # (Refine3D = 1 / Isotropic), so a thick layer multiplies the cost.
+                    # ~ the coarsest AMR edge length (capsule MinimumEdgeLength = 0.1).
 nTheta = 200        # number of points around the cylinder surface
 zOverhang = 0.25    # embedded surface extends this fraction of dz past each z plane
 
