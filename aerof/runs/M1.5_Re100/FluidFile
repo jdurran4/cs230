@@ -131,7 +131,12 @@ under AdaptiveMeshRefinement {
     // coarse vertices across the layer (~0.75 m x-y skew, ~10% bottom/top pressure
     // mismatch in M1.5_Re100). Refine3D = 1 (default) also splits edges across the layer.
     Refine3D = 1;
-    BisectionStrategy = Isotropic;
+    // Arbitrary = longest-edge bisection: with the thin layer (dz = 0.1 << h) the in-plane
+    // edges are split first and the layer only once in-plane edges reach ~dz (~5 layers
+    // at the 0.02 m cylinder spacing). Isotropic splits every edge at every level, so it
+    // keeps each coarse tet's h/dz aspect ratio and needs h/h_min ~ 33 layers near the
+    // cylinder whatever dz is (hit the 1M element cap); it suits cube-like starting tets.
+    BisectionStrategy = Arbitrary;
     ConsistentNumbering = On;
     RecomputeWallDistance = 0;
 }
