@@ -1,9 +1,10 @@
 // AERO-F input: quasi-2D embedded cylinder
-// Master template for the three run stages (lab FSI_NAS pattern, chained by restart):
-//   mesh      runs/mesh/FluidFile          PreRefine only (Steady, MaxIts = 0): builds the
-//                                          refined mesh once; shared by every (M, Re) case
-//   steady    runs/<case>/steady/FluidFile steady solve from freestream on that mesh
-//   unsteady  runs/<case>/FluidFile        restart from the steady solution; production
+// Master template for the two run stages of a case (lab FSI_NAS pattern, chained by
+// restart):
+//   steady    runs/<case>/steady/FluidFile pre-refines the coarse mesh (AMR PreRefine),
+//                                          then solves steady from freestream
+//   unsteady  runs/<case>/FluidFile        restart from the steady solution and its
+//                                          refined mesh; production run
 // Lines between "// #if <stages>" and "// #else" / "// #endif" are kept only for the
 // listed stages. newRun.py also replaces this header and the `key = value;` lines it
 // owns (see newRun.substitutions): Problem/Type, Input paths, Inlet {Mach, Density,
@@ -17,16 +18,14 @@ under Problem {
     Framework = Embedded;
 }
 
-// Paths are written by newRun.py relative to each stage's directory. A restarted stage
-// reads the refined mesh from the previous stage's references/ (GeometryPrefix) plus
-// MeshData; no RestartData, so the clock restarts at t = 0.
+// Paths are written by newRun.py relative to each stage's directory. The steady stage
+// reads the coarse mesh; the unsteady stage reads the refined mesh from steady/references/
+// (GeometryPrefix) plus MeshData and Solution; no RestartData, so the clock restarts at 0.
 under Input {
     GeometryPrefix  = "../../data/OUTPUT";
     EmbeddedSurface = "../../sources/embeddedSurface.top";
-// #if steady unsteady
-    MeshData        = "MeshData";
-// #endif
 // #if unsteady
+    MeshData        = "MeshData";
     Solution        = "Solution";
 // #endif
 }
@@ -98,7 +97,6 @@ under AdaptiveMeshRefinement {
 }
 
 under Output {
-// #if steady unsteady
     under Postpro {
         PostprocessSides = 1;
         Prefix = "./results/";
@@ -115,7 +113,6 @@ under Output {
         Frequency = 25;
 // #endif
     }
-// #endif
     under Restart {
         Frequency = 100;
         Prefix = "./references/";
@@ -180,9 +177,8 @@ under Space {
     }
 }
 
-// #if mesh steady
-// Steady: local time stepping with a CFL ramp (lab CapsuleSteady settings). The mesh
-// stage uses MaxIts = 0: it only pre-refines and writes the restart files.
+// #if steady
+// Steady: local time stepping with a CFL ramp (lab CapsuleSteady settings).
 under Time {
     Type = Implicit;
     MaxIts = 1000;
