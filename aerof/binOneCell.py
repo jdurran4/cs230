@@ -45,7 +45,8 @@ domainFile = os.path.join(aerofDir, 'sources', 'domain.top')
 
 # ============= Coarse mesh ==========================================================
 def readDomain(path):
-    """Returns nodes (nn, 3) and tets (ne, 4) as 0-based indices (FluidMesh_0 only)."""
+    """Returns nodes (nn, 3) and tets (ne, 4) as 0-based indices. Tets are the type-5
+    elements (FluidMesh_0 in domain.top, Volume_0 in sower's OUTPUT.top.NNNN)."""
     nodes, tets, block = [], [], None
     with open(path) as f:
         for line in f:
@@ -55,7 +56,7 @@ def readDomain(path):
                 continue
             if block == 'FluidNodes':
                 nodes.append([float(x) for x in s[1:4]])
-            elif block == 'FluidMesh_0':
+            elif s[1] == '5':
                 tets.append([int(n) - 1 for n in s[2:6]])
     return np.array(nodes), np.array(tets)
 
@@ -63,23 +64,26 @@ def readDomain(path):
 def owningNode(P, nodes, tets, chunk=4000):
     """Coarse node whose median-dual cell contains each point of P (np, 3): find the
     containing tet, then take the vertex with the largest barycentric coordinate."""
-    # Only tets near the points can contain them.
-    lo, hi = P[:, :2].min(axis=0) - 1.5 * mesh.h, P[:, :2].max(axis=0) + 1.5 * mesh.h
-    c = nodes[tets][:, :, :2].mean(axis=1)
-    near = np.all((c > lo) & (c < hi), axis=1)
-    T, V = tets[near], nodes[tets[near]]                                    # (k, 4, 3)
-    Minv = np.linalg.inv((V[:, 1:] - V[:, :1]).transpose(0, 2, 1))          # (k, 3, 3)
+    Vall = nodes[tets]                                                      # (ne, 4, 3)
+    Minv = np.linalg.inv((Vall[:, 1:] - Vall[:, :1]).transpose(0, 2, 1))    # (ne, 3, 3)
+    tlo, thi = Vall[:, :, :2].min(axis=1), Vall[:, :, :2].max(axis=1)       # x-y bboxes
 
+    order = np.lexsort((P[:, 1], P[:, 0]))      # spatially sorted chunks -> few tets each
     vtx = np.empty(len(P), dtype=int)
     for s in range(0, len(P), chunk):
-        p = P[s:s + chunk]
-        lam123 = np.einsum('kij,pkj->pki', Minv, p[:, None, :] - V[None, :, 0])  # (p, k, 3)
+        idx = order[s:s + chunk]
+        p = P[idx]
+        # Only tets whose x-y bounding box overlaps the chunk's can contain its points.
+        near = np.all((thi >= p[:, :2].min(axis=0) - 1e-9)
+                      & (tlo <= p[:, :2].max(axis=0) + 1e-9), axis=1)
+        T, V, M = tets[near], Vall[near], Minv[near]
+        lam123 = np.einsum('kij,pkj->pki', M, p[:, None, :] - V[None, :, 0])  # (p, k, 3)
         lam = np.concatenate([1 - lam123.sum(axis=2, keepdims=True), lam123], axis=2)
         inside = np.all(lam > -1e-12, axis=2)
         if not inside.any(axis=1).all():
             raise RuntimeError('some sample points are in no coarse tet')
         k = inside.argmax(axis=1)                                           # first hit
-        vtx[s:s + chunk] = T[k, lam[np.arange(len(p)), k].argmax(axis=1)]
+        vtx[idx] = T[k, lam[np.arange(len(p)), k].argmax(axis=1)]
     return vtx
 
 

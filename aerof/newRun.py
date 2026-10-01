@@ -44,9 +44,9 @@ templateDir = os.path.join(aerofDir, 'runTemplate')       # run scripts to copy
 # Freestream gas
 T_inf = 288.15          # freestream temperature [K]
 gamma = 1.4             # ratio of specific heats (must match SpecificHeatRatio in template)
-R_gas = 287.1           # ideal gas constant [J/(kg K)] (AERO-F default; check)
-C_suth = 1.458e-6       # Sutherland constant [kg/(m s K^0.5)]      (check vs AERO-F)
-S_suth = 110.4          # Sutherland reference temperature [K]      (check vs AERO-F)
+R_gas = 287.1           # ideal gas constant [J/(kg K)] (AERO-F default)
+C_suth = 1.458e-6       # Sutherland constant [kg/(m s K^0.5)] (AERO-F default)
+S_suth = 110.6          # Sutherland reference temperature [K] (AERO-F default, IoDataCore.C)
 
 # Time, in convective units D/U
 dt_conv = 0.0255        # time step (~5e-5 s at M1.5, Re100)
