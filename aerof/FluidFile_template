@@ -1,19 +1,34 @@
 // AERO-F input: quasi-2D embedded cylinder
-// Master template. newRun.py copies this into runs/<case>/FluidFile and replaces only
-// this header and: BoundaryConditions/Inlet {Mach, Density, Pressure} and
-// Time {MaxIts, TimeStep, MaxTime}. Edit everything else by hand here.
+// Master template for the three run stages (lab FSI_NAS pattern, chained by restart):
+//   mesh      runs/mesh/FluidFile          PreRefine only (Steady, MaxIts = 0): builds the
+//                                          refined mesh once; shared by every (M, Re) case
+//   steady    runs/<case>/steady/FluidFile steady solve from freestream on that mesh
+//   unsteady  runs/<case>/FluidFile        restart from the steady solution; production
+// Lines between "// #if <stages>" and "// #else" / "// #endif" are kept only for the
+// listed stages. newRun.py also replaces this header and the `key = value;` lines it
+// owns (see newRun.substitutions): Problem/Type, Input paths, Inlet {Mach, Density,
+// Pressure}, Time {MaxIts, TimeStep, MaxTime}. Edit everything else by hand here.
 // CASE-INFO
 
 under Problem {
-    Type      = Unsteady;
+    Type      = Steady;
     Mode      = Dimensional;
     Prec      = NonPreconditioned;
     Framework = Embedded;
 }
 
+// Paths are written by newRun.py relative to each stage's directory. A restarted stage
+// reads the refined mesh from the previous stage's references/ (GeometryPrefix) plus
+// MeshData; no RestartData, so the clock restarts at t = 0.
 under Input {
     GeometryPrefix  = "../../data/OUTPUT";
     EmbeddedSurface = "../../sources/embeddedSurface.top";
+// #if steady unsteady
+    MeshData        = "MeshData";
+// #endif
+// #if unsteady
+    Solution        = "Solution";
+// #endif
 }
 
 // Refinement regions are in mesh coordinates; they must match cylMeshGen.py
@@ -71,15 +86,19 @@ under AdaptiveMeshRefinement {
     UniformityThreshold = 0.05;
     UniformityThresholdType = MinMax;
     MaximumNumberOfElements = 1000000;
-    // Quasi-2D: Refine3D = 0 (undocumented, from lab) refines only in the plane normal
-    // to z (the default normal), so edges spanning the one-cell z thickness are not split
-    Refine3D = 0;
+    // Refine3D = 0 refines only edges lying in the x-y plane, for quasi-2D one-layer
+    // meshes. With Arbitrary bisection the manual warns the mesh quality "tends to be
+    // poor, particularly if the initial mesh is coarse": refined faces stay attached to
+    // coarse vertices across the layer (~0.75 m x-y skew, ~10% bottom/top pressure
+    // mismatch in M1.5_Re100). Refine3D = 1 (default) also splits edges across the layer.
+    Refine3D = 1;
     BisectionStrategy = Arbitrary;
     ConsistentNumbering = On;
     RecomputeWallDistance = 0;
 }
 
 under Output {
+// #if steady unsteady
     under Postpro {
         PostprocessSides = 1;
         Prefix = "./results/";
@@ -90,8 +109,13 @@ under Output {
         Temperature = "Temperature";
         LiftandDrag = "../postpro/LiftandDrag";
         EmbeddedSurfaceForce = "../postpro/EmbeddedSurfaceForce";
+// #if steady
+        Frequency = 0;     // fields only at the last iteration (LiftandDrag every iteration)
+// #else
         Frequency = 25;
+// #endif
     }
+// #endif
     under Restart {
         Frequency = 100;
         Prefix = "./references/";
@@ -156,6 +180,41 @@ under Space {
     }
 }
 
+// #if mesh steady
+// Steady: local time stepping with a CFL ramp (lab CapsuleSteady settings). The mesh
+// stage uses MaxIts = 0: it only pre-refines and writes the restart files.
+under Time {
+    Type = Implicit;
+    MaxIts = 1000;
+    Eps = 1e-8;
+    under CflLaw {
+        Strategy = Hybrid;
+        Cfl0 = 1;
+        CflMax = 100;
+    }
+    under Implicit {
+        Type = BackwardEuler;
+        MatrixVectorProduct = FiniteDifference;
+        under Newton {
+            MaxIts = 1;
+            Eps = 0.001;
+            FailSafe = On;
+            under LinearSolver {
+                under NavierStokes {
+                    Type = Gmres;
+                    MaxIts = 100;
+                    KrylovVectors = 100;
+                    Eps = 0.01;
+                    under Preconditioner {
+                        Type = Ras;
+                        Fill = 0;
+                    }
+                }
+            }
+        }
+    }
+}
+// #else
 under Time {
     Type = Implicit;
     MaxIts = 100;
@@ -183,6 +242,7 @@ under Time {
         }
     }
 }
+// #endif
 
 under EmbeddedFramework {
     Intersector = PhysBAM;

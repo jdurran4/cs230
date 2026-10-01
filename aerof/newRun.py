@@ -1,14 +1,27 @@
 """
 Set up AERO-F run directories for the quasi-2D embedded cylinder.
 
-For each (Mach, Re) case this creates aerof/runs/M<Mach>_Re<Re>/ containing
-  FluidFile      copy of FluidFile_template with only the freestream and time lines
-                 replaced (see substitutions())
-  run.sh, run.sbatch, clean.sh, postpro.sh, postpro.sbatch   copied from runTemplate/
-  results/ references/ postpro/              empty output directories
+Each case runs as a chain of stages linked by restarts (the lab's FSI_NAS pattern):
+
+  runs/mesh/                 mesh stage, shared by every (Mach, Re) case: PreRefine only
+                             (Steady, MaxIts = 0). The refinement is flow-independent, so
+                             one refined mesh serves the whole sweep at this geometry.
+  runs/M<Mach>_Re<Re>/steady/  steady solve from freestream on the refined mesh
+  runs/M<Mach>_Re<Re>/         production (unsteady) run restarted from the steady
+                             solution; its postpro/ is what binTargets/binInputs read
+
+Every stage directory gets a FluidFile from FluidFile_template (stage blocks selected by
+"// #if <stage>" lines, plus the substitutions in substitutions()), the scripts in
+runTemplate/ (run.sh, clean.sh, postpro.sh, *.sbatch) and empty results/ references/
+postpro/. The case directory also gets runChain.sh, which runs steady/ then the
+production run. Run order:
+    runs/mesh/run.sh NP            once per geometry
+    runs/<case>/runChain.sh NP     per case, with the SAME NP (a restarted stage reads the
+                                   refined mesh, which has a CPU map only for that NP)
 
 Everything else about the solver setup lives in FluidFile_template and is edited by
-hand there.
+hand there. If the geometry (cylMeshGen.py) or the AMR settings change, clean and rerun
+runs/mesh and every case.
 
 The run is Dimensional (SI units). The freestream state is set from Mach, Re and a
 fixed freestream temperature:
@@ -35,11 +48,13 @@ cases = [          # (Mach, Reynolds number based on D); add entries for a sweep
 ]
 overwrite = True  # True: rewrite FluidFile and scripts of existing run directories
                    # (outputs in results/ references/ postpro/ are left alone)
+meshDirName = 'mesh'   # shared mesh-stage directory under runs/
 
 aerofDir = os.path.dirname(os.path.abspath(__file__))
 runsDir = os.path.join(aerofDir, 'runs')                  # one subdirectory per case
 templateFile = os.path.join(aerofDir, 'FluidFile_template')
 templateDir = os.path.join(aerofDir, 'runTemplate')       # run scripts to copy
+stageScripts = ('run.sh', 'clean.sh', 'postpro.sh', 'run.sbatch', 'postpro.sbatch')
 
 # Freestream gas
 T_inf = 288.15          # freestream temperature [K]
@@ -48,7 +63,12 @@ R_gas = 287.1           # ideal gas constant [J/(kg K)] (AERO-F default)
 C_suth = 1.458e-6       # Sutherland constant [kg/(m s K^0.5)] (AERO-F default)
 S_suth = 110.6          # Sutherland reference temperature [K] (AERO-F default, IoDataCore.C)
 
-# Time, in convective units D/U
+# Steady stage
+steadyMaxIts = 1000     # pseudo-time iterations (stops earlier at Time/Eps in template)
+
+# Production (unsteady) stage, in convective units D/U. It starts from the steady
+# solution: a steady case only needs to show nothing grows; a shedding case needs the
+# instability to grow plus several shedding periods (St ~ 0.2 -> period ~ 5 D/U).
 dt_conv = 0.0255        # time step (~5e-5 s at M1.5, Re100)
 tEnd_conv = 100.0      # final time (transient + collection window)
 
@@ -68,34 +88,89 @@ def caseName(mach, Re):
 
 
 # ============= Template substitution ================================================
-def substitutions(mach, Re):
-    """(block path, key) -> new value. Only direct children of the block are matched,
-    so Time/MaxIts does not touch the Newton or linear solver MaxIts."""
-    fs = freestream(mach, Re)
-    tRef = mesh.D / fs['U']
-    return {
-        (('BoundaryConditions', 'Inlet'), 'Mach'): f'{mach:.10g}',
-        (('BoundaryConditions', 'Inlet'), 'Density'): f'{fs["rho"]:.10e}',
-        (('BoundaryConditions', 'Inlet'), 'Pressure'): f'{fs["p"]:.10e}',
-        (('Time',), 'MaxIts'): f'{math.ceil(tEnd_conv / dt_conv) + 10}',
-        (('Time',), 'TimeStep'): f'{dt_conv * tRef:.10e}',
-        (('Time',), 'MaxTime'): f'{tEnd_conv * tRef:.10e}',
+def quoted(path, fromDir):
+    return '"' + os.path.relpath(path, fromDir) + '"'
+
+
+def substitutions(stage, stageDir, caseDir=None, mach=None, Re=None):
+    """(block path, key) -> new value for one stage; paths relative to stageDir. Only
+    direct children of the block are matched, so Time/MaxIts does not touch the Newton
+    or linear solver MaxIts."""
+    prevRefs = {'mesh': None,
+                'steady': os.path.join(runsDir, meshDirName, 'references'),
+                'unsteady': os.path.join(caseDir or '', 'steady', 'references')}[stage]
+    inp = ('Input',)
+    subs = {
+        (('Problem',), 'Type'): 'Unsteady' if stage == 'unsteady' else 'Steady',
+        (inp, 'GeometryPrefix'): quoted(os.path.join(prevRefs, 'OUTPUT') if prevRefs
+                                        else os.path.join(aerofDir, 'data', 'OUTPUT'), stageDir),
+        (inp, 'EmbeddedSurface'): quoted(os.path.join(aerofDir, 'sources', 'embeddedSurface.top'),
+                                         stageDir),
     }
+    if stage == 'mesh':
+        subs[(('Time',), 'MaxIts')] = '0'
+        return subs                     # Inlet: the template values (no flow is computed)
+
+    fs = freestream(mach, Re)
+    subs[(inp, 'MeshData')] = quoted(os.path.join(prevRefs, 'MeshData'), stageDir)
+    subs[(('BoundaryConditions', 'Inlet'), 'Mach')] = f'{mach:.10g}'
+    subs[(('BoundaryConditions', 'Inlet'), 'Density')] = f'{fs["rho"]:.10e}'
+    subs[(('BoundaryConditions', 'Inlet'), 'Pressure')] = f'{fs["p"]:.10e}'
+    if stage == 'steady':
+        subs[(('Time',), 'MaxIts')] = f'{steadyMaxIts}'
+    else:
+        tRef = mesh.D / fs['U']
+        subs[(inp, 'Solution')] = quoted(os.path.join(prevRefs, 'Solution'), stageDir)
+        subs[(('Time',), 'MaxIts')] = f'{math.ceil(tEnd_conv / dt_conv) + 10}'
+        subs[(('Time',), 'TimeStep')] = f'{dt_conv * tRef:.10e}'
+        subs[(('Time',), 'MaxTime')] = f'{tEnd_conv * tRef:.10e}'
+    return subs
 
 
-def caseInfo(mach, Re):
+def caseInfo(stage, mach=None, Re=None):
+    if stage == 'mesh':
+        return (f'// Stage mesh: PreRefine only, shared by every case at this geometry '
+                f'(written by newRun.py)')
     fs = freestream(mach, Re)
     tRef = mesh.D / fs['U']
+    time = (f'steady, MaxIts = {steadyMaxIts}' if stage == 'steady'
+            else f'dt = {dt_conv:g} D/U, tEnd = {tEnd_conv:g} D/U')
     return f"""\
-// Case {caseName(mach, Re)}: Mach = {mach:g}, Re_D = {Re:g}   (written by newRun.py)
+// Case {caseName(mach, Re)}, stage {stage}: Mach = {mach:g}, Re_D = {Re:g}   (written by newRun.py)
 //   D = {mesh.D:g} m, T = {T_inf:g} K, a = {fs['a']:.6g} m/s, U = {fs['U']:.6g} m/s
 //   mu = {fs['mu']:.6g} Pa s, rho = {fs['rho']:.6g} kg/m^3, p = {fs['p']:.6g} Pa
-//   D/U = {tRef:.6g} s, dt = {dt_conv:g} D/U, tEnd = {tEnd_conv:g} D/U"""
+//   D/U = {tRef:.6g} s, {time}"""
 
 
-def fillTemplate(text, subs, info):
-    """Replace `key = value;` lines at the given block paths. Every substitution must
-    match exactly once, so a template edit can't silently break a sweep."""
+def selectStage(text, stage):
+    """Keep the lines of `// #if <stages>` ... `// #else` ... `// #endif` blocks that
+    apply to this stage (blocks may nest); drop the directive lines."""
+    keep = [True]          # stack: is the current block kept
+    out = []
+    for n, line in enumerate(text.splitlines(), 1):
+        d = line.strip()
+        if d.startswith('// #if '):
+            keep.append(keep[-1] and stage in d[len('// #if '):].split())
+        elif d == '// #else':
+            if len(keep) == 1:
+                raise ValueError(f'FluidFile_template line {n}: #else without #if')
+            keep[-1] = keep[-2] and not keep[-1]
+        elif d == '// #endif':
+            if len(keep) == 1:
+                raise ValueError(f'FluidFile_template line {n}: #endif without #if')
+            keep.pop()
+        elif keep[-1]:
+            out.append(line)
+    if len(keep) != 1:
+        raise ValueError('FluidFile_template: unclosed #if')
+    return '\n'.join(out) + '\n'
+
+
+def fillTemplate(text, stage, subs, info):
+    """Select the stage's lines, then replace `key = value;` lines at the given block
+    paths. Every substitution must match exactly once, so a template edit can't
+    silently break a sweep."""
+    text = selectStage(text, stage)
     counts = {k: 0 for k in subs}
     stack = []
     out = []
@@ -114,43 +189,68 @@ def fillTemplate(text, subs, info):
         out.append(line)
     bad = [f'{"/".join(p)}/{key} (found {n})' for (p, key), n in counts.items() if n != 1]
     if bad:
-        raise ValueError('FluidFile_template: expected exactly one of ' + ', '.join(bad))
+        raise ValueError(f'FluidFile_template ({stage} stage): expected exactly one of '
+                         + ', '.join(bad))
     text = '\n'.join(out) + '\n'
     if text.count('// CASE-INFO\n') != 1:
         raise ValueError('FluidFile_template: expected one "// CASE-INFO" header line')
     return text.replace('// CASE-INFO\n', info + '\n')
 
 
-def setupRun(mach, Re):
+def setupStage(stageDir, stage, jobName, caseDir=None, mach=None, Re=None):
+    """FluidFile, run scripts and empty output directories for one stage."""
+    os.makedirs(stageDir, exist_ok=True)
+    for d in ('results', 'references', 'postpro'):
+        os.makedirs(os.path.join(stageDir, d), exist_ok=True)
+    for f in stageScripts:
+        shutil.copy2(os.path.join(templateDir, f), stageDir)  # keeps the executable bit
+    for sbatch in ('run.sbatch', 'postpro.sbatch'):
+        sbatch = os.path.join(stageDir, sbatch)
+        with open(sbatch) as fh:
+            text = fh.read()
+        with open(sbatch, 'w') as fh:
+            fh.write(text.replace('--job-name=CASE', f'--job-name={jobName}'))
+
+    with open(templateFile) as fh:
+        text = fh.read()
+    subs = substitutions(stage, stageDir, caseDir, mach, Re)
+    with open(os.path.join(stageDir, 'FluidFile'), 'w') as fh:
+        fh.write(fillTemplate(text, stage, subs, caseInfo(stage, mach, Re)))
+
+
+def setupMesh():
+    meshDir = os.path.join(runsDir, meshDirName)
+    if os.path.exists(os.path.join(meshDir, 'FluidFile')) and not overwrite:
+        return meshDir
+    setupStage(meshDir, 'mesh', meshDirName)
+    print(f'Wrote runs/{meshDirName} (mesh stage, shared)')
+    return meshDir
+
+
+def setupRun(mach, Re, meshDir):
     name = caseName(mach, Re)
     runDir = os.path.join(runsDir, name)
     if os.path.exists(runDir) and not overwrite:
         print(f'Skipped runs/{name}: already exists (set overwrite = True to rewrite)')
         return
-    os.makedirs(runDir, exist_ok=True)
-    for d in ('results', 'references', 'postpro'):
-        os.makedirs(os.path.join(runDir, d), exist_ok=True)
+    setupStage(os.path.join(runDir, 'steady'), 'steady', f'{name}_steady', runDir, mach, Re)
+    setupStage(runDir, 'unsteady', name, runDir, mach, Re)
 
-    for f in os.listdir(templateDir):
-        shutil.copy2(os.path.join(templateDir, f), runDir)  # keeps the executable bit
-    for sbatch in ('run.sbatch', 'postpro.sbatch'):
-        sbatch = os.path.join(runDir, sbatch)
-        with open(sbatch) as fh:
-            text = fh.read()
-        with open(sbatch, 'w') as fh:
-            fh.write(text.replace('--job-name=CASE', f'--job-name={name}'))
-
-    with open(templateFile) as fh:
+    with open(os.path.join(templateDir, 'runChain.sh')) as fh:
         text = fh.read()
-    with open(os.path.join(runDir, 'FluidFile'), 'w') as fh:
-        fh.write(fillTemplate(text, substitutions(mach, Re), caseInfo(mach, Re)))
+    chain = os.path.join(runDir, 'runChain.sh')
+    with open(chain, 'w') as fh:
+        fh.write(text.replace('MESH_DIR=CHANGEME',
+                              f'MESH_DIR={os.path.relpath(meshDir, runDir)}'))
+    os.chmod(chain, 0o755)
 
     fs = freestream(mach, Re)
-    print(f'Wrote runs/{name}: U = {fs["U"]:.4g} m/s, rho = {fs["rho"]:.4g} kg/m^3, '
+    print(f'Wrote runs/{name} (+ steady/): U = {fs["U"]:.4g} m/s, rho = {fs["rho"]:.4g} kg/m^3, '
           f'p = {fs["p"]:.4g} Pa, dt = {dt_conv * mesh.D / fs["U"]:.4g} s')
 
 
 # ============= Main =================================================================
 if __name__ == '__main__':
+    meshDir = setupMesh()
     for mach, Re in cases:
-        setupRun(mach, Re)
+        setupRun(mach, Re, meshDir)

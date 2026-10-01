@@ -5,8 +5,10 @@ The model will see the coarse solver's cell-averaged CONSERVED variables online,
 volume-average rho, rho u, rho E over the FLUID part of each coarse median-dual column
 and derive everything else (u, p, T, Mach, Re_D, flow angle) from those averages.
 
-Fine-mesh volumes: each AMR frame NNNN >= 0001 has its own mesh (postpro/OUTPUT.top.NNNN)
-and fields (postpro/<QOI>.NNNN.xpost). Each fine tet gives V/4 to each of its vertices
+Fine-mesh volumes: each output frame NNNN has its own mesh (postpro/OUTPUT.top.NNNN) and
+fields (postpro/<QOI>.NNNN.xpost). Frame 0000 is output on the mesh the run started from
+(the coarse mesh for a fresh run, the refined mesh for a restarted stage); later frames
+follow refinements. Each fine tet gives V/4 to each of its vertices
 (median dual). That piece is assigned to a coarse column at the point halfway between
 the vertex and the tet centroid (inside the piece, so no ties on coarse dual
 boundaries; exact wherever the fine mesh is the coarse mesh). Pieces whose vertex is
@@ -16,8 +18,6 @@ Volume fraction is geometric: the body cross-section (disk) is sampled in x-y an
 assigned to columns with the same median-dual rule. The fine-mesh fluid volume is a
 cross-check, not used.
 
-Frame 0000 (t = 0, the initial condition on the coarse mesh) is skipped.
-
 Writes runs/<run>/inputs.npz with, for ALL coarse columns (ncol) and output times (nt):
   times (nt,), columns (ncol, 2) grid-point x-y
   rho (nt, ncol), rhou (nt, ncol, 3), rhoE (nt, ncol)       averaged conserved variables
@@ -25,7 +25,7 @@ Writes runs/<run>/inputs.npz with, for ALL coarse columns (ncol) and output time
   fluidCentroid (nt, ncol, 2)                               x-y centroid of the fluid part
   Vcell, Vsolid, volFrac (ncol,), VfluidFine (nt, ncol)     geometry (m^3)
 
-Usage: set runNames below (None = every run with postpro/*.0001.xpost), then run.
+Usage: set runNames below (None = every run with postpro/*.NNNN.xpost), then run.
 """
 import glob
 import os
@@ -133,7 +133,7 @@ def binInputs(runName, nodes, tets):
     Vsolid = solidVolume(nodes, tets, colOf, ncol)
 
     frames = sorted(f.split('.')[-1] for f in glob.glob(os.path.join(post, 'OUTPUT.top.[0-9]*'))
-                    if not f.endswith('.dec') and not f.endswith('.0000'))
+                    if not f.endswith('.dec'))
     acc = {k: [] for k in ('times', 'rho', 'rhou', 'rhoE', 'cen', 'Vf')}
     for fr in frames:
         fineNodes, fineTets = bin1.readDomain(os.path.join(post, f'OUTPUT.top.{fr}'))
@@ -197,7 +197,7 @@ def binInputs(runName, nodes, tets):
 if __name__ == '__main__':
     names = runNames or sorted(
         r for r in os.listdir(runsDir)
-        if glob.glob(os.path.join(runsDir, r, 'postpro', '*.0001.xpost')))
+        if glob.glob(os.path.join(runsDir, r, 'postpro', '*.[0-9][0-9][0-9][0-9].xpost')))
     nodes, tets = bin1.readDomain(bin1.domainFile)
     for name in names:
         binInputs(name, nodes, tets)

@@ -14,3 +14,6 @@ aerof/runs/*/postpro/
 log.out
 log.postpro
 *.exo
+aerof/runs/**/DONE
+aerof/runs/**/*.npz
+aerof/runs/**/*.png

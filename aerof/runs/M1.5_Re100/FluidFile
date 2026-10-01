@@ -1,10 +1,16 @@
 // AERO-F input: quasi-2D embedded cylinder
-// Master template. newRun.py copies this into runs/<case>/FluidFile and replaces only
-// this header and: BoundaryConditions/Inlet {Mach, Density, Pressure} and
-// Time {MaxIts, TimeStep, MaxTime}. Edit everything else by hand here.
-// Case M1.5_Re100: Mach = 1.5, Re_D = 100   (written by newRun.py)
+// Master template for the three run stages (lab FSI_NAS pattern, chained by restart):
+//   mesh      runs/mesh/FluidFile          PreRefine only (Steady, MaxIts = 0): builds the
+//                                          refined mesh once; shared by every (M, Re) case
+//   steady    runs/<case>/steady/FluidFile steady solve from freestream on that mesh
+//   unsteady  runs/<case>/FluidFile        restart from the steady solution; production
+// Lines between "// #if <stages>" and "// #else" / "// #endif" are kept only for the
+// listed stages. newRun.py also replaces this header and the `key = value;` lines it
+// owns (see newRun.substitutions): Problem/Type, Input paths, Inlet {Mach, Density,
+// Pressure}, Time {MaxIts, TimeStep, MaxTime}. Edit everything else by hand here.
+// Case M1.5_Re100, stage unsteady: Mach = 1.5, Re_D = 100   (written by newRun.py)
 //   D = 1 m, T = 288.15 K, a = 340.322 m/s, U = 510.483 m/s
-//   mu = 1.78938e-05 Pa s, rho = 3.50527e-06 kg/m^3, p = 0.289983 Pa
+//   mu = 1.78848e-05 Pa s, rho = 3.50351e-06 kg/m^3, p = 0.289838 Pa
 //   D/U = 0.00195893 s, dt = 0.0255 D/U, tEnd = 100 D/U
 
 under Problem {
@@ -14,9 +20,14 @@ under Problem {
     Framework = Embedded;
 }
 
+// Paths are written by newRun.py relative to each stage's directory. A restarted stage
+// reads the refined mesh from the previous stage's references/ (GeometryPrefix) plus
+// MeshData; no RestartData, so the clock restarts at t = 0.
 under Input {
-    GeometryPrefix  = "../../data/OUTPUT";
+    GeometryPrefix  = "steady/references/OUTPUT";
     EmbeddedSurface = "../../sources/embeddedSurface.top";
+    MeshData        = "steady/references/MeshData";
+    Solution        = "steady/references/Solution";
 }
 
 // Refinement regions are in mesh coordinates; they must match cylMeshGen.py
@@ -74,9 +85,12 @@ under AdaptiveMeshRefinement {
     UniformityThreshold = 0.05;
     UniformityThresholdType = MinMax;
     MaximumNumberOfElements = 1000000;
-    // Quasi-2D: Refine3D = 0 (undocumented, from lab) refines only in the plane normal
-    // to z (the default normal), so edges spanning the one-cell z thickness are not split
-    Refine3D = 0;
+    // Refine3D = 0 refines only edges lying in the x-y plane, for quasi-2D one-layer
+    // meshes. With Arbitrary bisection the manual warns the mesh quality "tends to be
+    // poor, particularly if the initial mesh is coarse": refined faces stay attached to
+    // coarse vertices across the layer (~0.75 m x-y skew, ~10% bottom/top pressure
+    // mismatch in M1.5_Re100). Refine3D = 1 (default) also splits edges across the layer.
+    Refine3D = 1;
     BisectionStrategy = Arbitrary;
     ConsistentNumbering = On;
     RecomputeWallDistance = 0;
@@ -131,8 +145,8 @@ under BoundaryConditions {
     under Inlet {
         Type     = External;
         Mach     = 1.5;
-        Density  = 3.5052698818e-06;
-        Pressure = 2.8998349357e-01;
+        Density  = 3.5035117527e-06;
+        Pressure = 2.8983804730e-01;
         Alpha    = 0.0;
         Beta     = 0.0;
     }

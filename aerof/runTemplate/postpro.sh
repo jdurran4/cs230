@@ -6,11 +6,17 @@
 # For each frame this rebuilds the mesh (postpro/<name>.top.NNNN), merges each QOI
 # onto it (postpro/<QOI>.NNNN.xpost) and writes postpro/<name>.e-s.NNNN. Open the
 # .e-s.* series in ParaView as one time series (the mesh can change between frames).
+# Output written before any refinement in this run has no frame number; it is on the
+# mesh the FluidFile reads (GeometryPrefix: the coarse mesh for a fresh run, the
+# previous stage's refined mesh for a restarted stage) and becomes frame 0000.
 #
 # Serial:    ./postpro.sh
 # Parallel:  mpirun -np 12 bash postpro.sh   (frames split round-robin across ranks)
 cd "$(dirname "$0")"
-source ../../tools.sh
+ROOT=$PWD
+until [ -f "$ROOT/tools.sh" ] || [ "$ROOT" = / ]; do ROOT=$(dirname "$ROOT"); done
+source "$ROOT/tools.sh"
+GEOM=$(sed -n 's/^[[:space:]]*GeometryPrefix[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' FluidFile)
 
 #module load netcdf/4.4.1.1
 
@@ -25,23 +31,24 @@ mkdir -p postpro
 # Output frames, from the per-frame connectivity files (also handles restarts, where
 # numbering does not start at 0001)
 CON_FILES=(results/*.con.[0-9][0-9][0-9][0-9])
-if [ ! -e "${CON_FILES[0]}" ]; then
-    echo "No results/*.con.NNNN files found: nothing to postprocess"
+[ -e "${CON_FILES[0]}" ] || CON_FILES=()
+NAME=$(basename "$GEOM")   # mesh name AERO-F uses (from GeometryPrefix)
+HAS0000=0
+ls results | grep -E "^${QOIs[0]}" | grep -qvE "^${QOIs[0]}\.[0-9]{4}\." && HAS0000=1
+if [ ${#CON_FILES[@]} -eq 0 ] && [ $HAS0000 -eq 0 ]; then
+    echo "No output in results/: nothing to postprocess"
     exit 1
 fi
-NAME=$(basename "${CON_FILES[0]}")
-NAME=${NAME%.con.*}   # mesh name AERO-F used (from GeometryPrefix)
-[ $RANK -eq 0 ] && echo "Mesh name $NAME, ${#CON_FILES[@]} frames, $NTASKS task(s)"
+[ $RANK -eq 0 ] && echo "Mesh name $NAME, frame 0000: $HAS0000, ${#CON_FILES[@]} numbered frames, $NTASKS task(s)"
 
-# Frame 0000: output written on the original (pre-AMR) mesh, if AERO-F wrote any
-# (results/<QOI> without a frame number)
-if [ $RANK -eq 0 ] && ls results | grep -E "^${QOIs[0]}" | grep -qvE "^${QOIs[0]}\.[0-9]{4}\."; then
-    echo "Frame 0000 (original mesh) on rank $RANK"
-    $SOWER -fluid -merge -con ../../data/OUTPUT.con -mesh ../../data/OUTPUT.msh \
-        -dec ../../data/OUTPUT.dec -topo postpro/$NAME.top.0000 -quiet
+# Frame 0000: output on the mesh the run started from (results/<QOI> without a frame number)
+if [ $RANK -eq 0 ] && [ $HAS0000 -eq 1 ]; then
+    echo "Frame 0000 (starting mesh $GEOM) on rank $RANK"
+    $SOWER -fluid -merge -con $GEOM.con -mesh $GEOM.msh \
+        -dec $GEOM.dec -topo postpro/$NAME.top.0000 -quiet
     XPOSTS=()
     for QOI in "${QOIs[@]}"; do
-        $SOWER -fluid -merge -con ../../data/OUTPUT.con -mesh ../../data/OUTPUT.msh \
+        $SOWER -fluid -merge -con $GEOM.con -mesh $GEOM.msh \
             -result results/$QOI -output postpro/$QOI.0000 -name $QOI -quiet
         XPOSTS+=(postpro/$QOI.0000.xpost)
     done
