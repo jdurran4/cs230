@@ -115,7 +115,9 @@ if __name__ == '__main__':
     print(f'\n3. effective span (stagnation nodes: {front.sum()}, arc per node {arc:.4f} m)')
     print(f'   Cp_max (normal shock pitot) = {cpMax:.3f},  p0 - p_inf = {cpMax * q:.4f} Pa')
     print(f'   sum Fx on stagnation nodes (2nd-half average) = {FxFront:.4e} N')
-    print(f'   -> span = Fx / ((p0 - p_inf) * arc) = {FxFront / (cpMax * q * arc):.3f} m')
+    nFrontStations = len(np.unique(np.round(theta[front], 8)))   # ties: 2 when offset
+    print(f'   -> span = Fx / ((p0 - p_inf) * arc * {nFrontStations} stations) = '
+          f'{FxFront / (cpMax * q * arc * nFrontStations):.3f} m')
     print(f'   slab thickness dz = {dz:.3f} m,  tube length = {zLen:.3f} m')
 
     # Drag coefficient with either span, for reference
