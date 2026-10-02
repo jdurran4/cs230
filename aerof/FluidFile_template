@@ -144,11 +144,12 @@ under AdaptiveMeshRefinement {
     BisectionStrategy = Arbitrary;
     // Manual: with Arbitrary bisection set MaximumAspectRatio and/or MinimumElementVolume
     // to prevent element flattening. Aspect ratio = circumradius/inradius (3 for a regular
-    // tet, MeshAdapterCore.C:325); a bisection is refused if a child would exceed it. The
-    // starting tets are 13.6 (0.83 x 0.83 x 0.1 hex split); the hidden default of 1000 left
-    // a 99th percentile of ~390. If refinement stalls short of MinimumEdgeLength, raise it.
-    CheckAspectRatio = On;
-    MaximumAspectRatio = 30;
+    // tet, MeshAdapterCore.C:325); a bisection is refused if a child would exceed it, and
+    // with Arbitrary the check is on by default at 1000 (IoDataCore.C:5686). Our starting
+    // tets (0.83 x 0.83 x 0.1 hex split) give children of ~150 on their first, longest-edge
+    // split, so a tight limit blocks refinement entirely (30 refined nothing at t = 0).
+    // Kept at the default; the resulting slivers are accepted pending a mesh-sensitivity check.
+    // MaximumAspectRatio = 1000;
     ConsistentNumbering = On;
     RecomputeWallDistance = 0;
 }
