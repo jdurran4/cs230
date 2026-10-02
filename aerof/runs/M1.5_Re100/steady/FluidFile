@@ -34,8 +34,10 @@ under Input {
 // (cylinder center xc, yc = -3.3, 0.1; D = 1; cylinder FaceID = 7). Every Point_z is
 // written by newRun.py as the mid-plane dz/2 of the fluid layer.
 //
-// Steady stage: criteria [0] and [1] pre-refine at t = 0 (geometry only); the Hessian
-// criterion [2] then adapts to the flow every Frequency iterations of the steady solve.
+// Steady stage: criteria [0], [1] and [3] pre-refine at t = 0 (geometry only); the
+// Hessian criterion [2] then adapts to the flow every Frequency iterations of the steady
+// solve. Target edge lengths step down gently: coarse 0.83 -> outer capsule [3] 0.2 ->
+// inner capsule [0] 0.1 -> Hessian [2] 0.025 / cylinder [1] 0.02.
 // Unsteady stage: Frequency = 0, so the steady stage's mesh is kept frozen (pre-refine
 // at t = 0 finds nothing left to refine): every snapshot is on one mesh.
 under AdaptiveMeshRefinement {
@@ -108,6 +110,30 @@ under AdaptiveMeshRefinement {
         PreRefine = Off;     // needs a flow field
         MinimumEdgeLength = 0.025;
         NumLevels = 5;
+    }
+
+    // Outer transition capsule: same region as the Hessian criterion [2], at twice the
+    // inner capsule's edge length, so the size steps down gently into the inner capsule
+    // and the Hessian criterion never refines the coarse tets directly (the worst-quality
+    // tets were there when the Hessian region extended past the inner capsule).
+    under SelectionCriterion[3] {
+        Type = APriori;
+        PreRefine = On;
+        MinimumEdgeLength = 0.2;
+        NumLevels = 10;
+        under RefinementDomain {
+            Type = Capsule;
+            under Capsule {
+                Point_x = -6.3;
+                Point_y = 0.1;
+                Point_z = 0.05;
+                Normal_x = 1;
+                Normal_y = 0;
+                Normal_z = 0;
+                Radius = 4.0;
+                Length = 15.0;
+            }
+        }
     }
 
     InitializeRefinementTag = On;
