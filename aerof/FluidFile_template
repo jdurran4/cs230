@@ -142,6 +142,13 @@ under AdaptiveMeshRefinement {
     // keeps each coarse tet's h/dz aspect ratio and needs h/h_min ~ 33 layers near the
     // cylinder whatever dz is (hit the 1M element cap); it suits cube-like starting tets.
     BisectionStrategy = Arbitrary;
+    // Manual: with Arbitrary bisection set MaximumAspectRatio and/or MinimumElementVolume
+    // to prevent element flattening. Aspect ratio = circumradius/inradius (3 for a regular
+    // tet, MeshAdapterCore.C:325); a bisection is refused if a child would exceed it. The
+    // starting tets are 13.6 (0.83 x 0.83 x 0.1 hex split); the hidden default of 1000 left
+    // a 99th percentile of ~390. If refinement stalls short of MinimumEdgeLength, raise it.
+    CheckAspectRatio = On;
+    MaximumAspectRatio = 30;
     ConsistentNumbering = On;
     RecomputeWallDistance = 0;
 }
