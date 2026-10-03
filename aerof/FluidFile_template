@@ -1,15 +1,10 @@
-// AERO-F input: quasi-2D embedded cylinder
-// Master template for the two run stages of a case (lab FSI_NAS pattern, chained by
-// restart):
-//   steady    runs/<case>/steady/FluidFile pre-refines the coarse mesh (AMR PreRefine),
-//                                          then solves steady from freestream
-//   unsteady  runs/<case>/FluidFile        restart from the steady solution and its
-//                                          refined mesh; production run
-// Lines between "// #if <stages>" and "// #else" / "// #endif" are kept only for the
-// listed stages. newRun.py also replaces this header and the `key = value;` lines it
-// owns (see newRun.substitutions): Problem/Type, Input paths, AMR capsule Point_z,
-// Inlet {Mach, Density, Pressure}, Time {MaxIts, TimeStep, MaxTime}. Edit everything
-// else by hand here.
+// AERO-F input: quasi-2D embedded cylinder, steady (runs/<case>/FluidFile)
+// Pre-refines the coarse mesh (AMR PreRefine), then solves steady from freestream with
+// Hessian AMR. The converged solution is the data sample. (The unsteady production
+// stage was removed 2026-10-02; see git history before that for its settings.)
+// newRun.py replaces this header and the `key = value;` lines it owns (see
+// newRun.substitutions): Input paths, AMR capsule Point_x/y/z, Inlet {Mach, Density,
+// Pressure}, Time/MaxIts. Edit everything else by hand here.
 // CASE-INFO
 
 under Problem {
@@ -19,34 +14,27 @@ under Problem {
     Framework = Embedded;
 }
 
-// Paths are written by newRun.py relative to each stage's directory. The steady stage
-// reads the coarse mesh; the unsteady stage reads the refined mesh from steady/references/
-// (GeometryPrefix) plus MeshData and Solution; no RestartData, so the clock restarts at 0.
+// Paths are written by newRun.py relative to the case directory: the shared coarse mesh
+// and the case's own cylinder surface.
 under Input {
     GeometryPrefix  = "../../data/OUTPUT";
     EmbeddedSurface = "../../sources/embeddedSurface.top";
-// #if unsteady
-    MeshData        = "MeshData";
-    Solution        = "Solution";
-// #endif
 }
 
-// Refinement regions are in mesh coordinates; they must match cylMeshGen.py
-// (cylinder center xc, yc = -3.3, 0.1; D = 1; cylinder FaceID = 7). Every Point_z is
-// written by newRun.py as the mid-plane dz/2 of the fluid layer.
+// Refinement regions are in mesh coordinates (D = 1; cylinder FaceID = 7). newRun.py
+// writes every capsule's Point_x/Point_y from the case's cylinder center (the values
+// below are for xc, yc = -3.3, 0.1) and Point_z as the mid-plane dz/2 of the fluid layer.
 //
-// Steady stage: criteria [0], [1] and [3] pre-refine at t = 0 (geometry only); the
-// Hessian criterion [2] then adapts to the flow every Frequency iterations of the steady
-// solve. Target edge lengths step down gently: coarse 0.83 -> outer capsule [3] 0.2 ->
-// inner capsule [0] 0.1 -> Hessian [2] 0.025 / cylinder [1] 0.02.
-// Unsteady stage: Frequency = 0, so the steady stage's mesh is kept frozen (pre-refine
-// at t = 0 finds nothing left to refine): every snapshot is on one mesh.
+// Criteria [0], [1] and [3] pre-refine at t = 0 (geometry only); the Hessian criterion
+// [2] then adapts to the flow every Frequency iterations of the steady solve. Target
+// edge lengths step down gently: coarse 0.83 -> outer capsule [3] 0.2 -> inner capsule
+// [0] 0.1 -> Hessian [2] 0.025 / cylinder [1] 0.02.
 under AdaptiveMeshRefinement {
 
     // Baseline bow shock and wake region: capsule of radius 2 D whose axis runs along +x
     // from 1.5 D upstream of the cylinder center to 10 D downstream (rounded ends reach
     // ~3.5 D upstream; bow shock standoff at M1.5 is ~1.5 D ahead of the surface).
-    // Keeps the wake resolved even if a case sheds after the steady stage.
+    // Keeps the near wake resolved.
     under SelectionCriterion[0] {
         Type = APriori;
         PreRefine = On;
@@ -138,13 +126,9 @@ under AdaptiveMeshRefinement {
     }
 
     InitializeRefinementTag = On;
-// #if steady
     Frequency = 20;            // adapt every 20 iterations of the steady solve
     BalancingFrequency = 20;
     UseUnsteadyStrategy = 1;   // steady: adapt on Frequency, not on a residual drop
-// #else
-    Frequency = 0;             // frozen mesh
-// #endif
     Mode = NonDimensional;
     BalancingCriterion = ElemMaxMinRatio;
     BalancingThreshold = 1.05;
@@ -191,11 +175,7 @@ under Output {
         Temperature = "Temperature";
         LiftandDrag = "../postpro/LiftandDrag";
         EmbeddedSurfaceForce = "../postpro/EmbeddedSurfaceForce";
-// #if steady
         Frequency = 0;     // fields only at the last iteration (LiftandDrag every iteration)
-// #else
-        Frequency = 25;
-// #endif
     }
     under Restart {
         Frequency = 100;
@@ -261,7 +241,6 @@ under Space {
     }
 }
 
-// #if steady
 // Steady: local time stepping with a CFL ramp (lab CapsuleSteady settings).
 under Time {
     Type = Implicit;
@@ -294,35 +273,6 @@ under Time {
         }
     }
 }
-// #else
-under Time {
-    Type = Implicit;
-    MaxIts = 100;
-    TimeStep = 2e-05;
-    MaxTime = 0.5;
-    under Implicit {
-        Type = RungeKutta2;   // 2-stage, 2nd-order DIRK
-        MatrixVectorProduct = FiniteDifference;
-        under Newton {
-            MaxIts = 20;
-            Eps = 0.001;
-            FailSafe = AlwaysOn;   // fall back to first order where Newton fails (linear reconstruction)
-            under LinearSolver {
-                under NavierStokes {
-                    Type = Gmres;
-                    MaxIts = 100;
-                    KrylovVectors = 100;
-                    Eps = 0.01;
-                    under Preconditioner {
-                        Type = Ras;
-                        Fill = 0;
-                    }
-                }
-            }
-        }
-    }
-}
-// #endif
 
 under EmbeddedFramework {
     Intersector = PhysBAM;

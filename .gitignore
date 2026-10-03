@@ -17,3 +17,4 @@ log.postpro
 aerof/runs/**/DONE
 aerof/runs/**/*.npz
 aerof/runs/**/*.png
+aerof/runSweep*.log

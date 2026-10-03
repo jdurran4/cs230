@@ -7,7 +7,7 @@ and derive everything else (u, p, T, Mach, Re_D, flow angle) from those averages
 
 Fine-mesh volumes: each output frame NNNN has its own mesh (postpro/OUTPUT.top.NNNN) and
 fields (postpro/<QOI>.NNNN.xpost). Frame 0000 is output on the mesh the run started from
-(the coarse mesh for a fresh run, the refined mesh for a restarted stage); later frames
+(the coarse mesh); later frames
 follow refinements. Each fine tet gives V/4 to each of its vertices
 (median dual). That piece is assigned to a coarse column at the point halfway between
 the vertex and the tet centroid (inside the piece, so no ties on coarse dual
@@ -15,21 +15,19 @@ boundaries; exact wherever the fine mesh is the coarse mesh). Pieces whose verte
 inside the body are dropped: AERO-F's values there are ghost states, not flow.
 
 Volume fraction is geometric: the body cross-section (disk) is sampled in x-y and z and
-assigned to columns with the same median-dual rule. The fine-mesh fluid volume is a
+assigned to columns with the same median-dual rule. The cylinder center is per case
+(binTargets.geometry). The fine-mesh fluid volume is a
 cross-check, not used.
 
-Writes <stage dir>/inputs.npz with, for ALL coarse columns (ncol) and output times (nt):
+Writes runs/<run>/inputs.npz with, for ALL coarse columns (ncol) and output times (nt):
   times (nt,), columns (ncol, 2) grid-point x-y
   rho (nt, ncol), rhou (nt, ncol, 3), rhoE (nt, ncol)       averaged conserved variables
   u (nt, ncol, 2), p, T, M, ReD, flowAngle (nt, ncol)       derived from the averages
   fluidCentroid (nt, ncol, 2)                               x-y centroid of the fluid part
   Vcell, Vsolid, volFrac (ncol,), VfluidFine (nt, ncol)     geometry (m^3)
+  xc, yc, D                                                 cylinder center, diameter
 
-Reads and writes in the stage directory (see binTargets.stage, which this script uses):
-runs/<run>/steady/ or runs/<run>/.
-
-Usage: set binTargets.stage, and runNames below (None = every run whose stage directory
-has postpro/*.NNNN.xpost), then run.
+Usage: set runNames below (None = every run with postpro/*.NNNN.xpost), then run.
 """
 import glob
 import os
@@ -82,24 +80,25 @@ def tetVolumes(nodes, tets):
                             np.cross(v[:, 2] - v[:, 0], v[:, 3] - v[:, 0]))) / 6
 
 
-def insideBody(xy):
-    return np.hypot(xy[:, 0] - mesh.xc, xy[:, 1] - mesh.yc) < mesh.D / 2
+def insideBody(xy, geo):
+    return np.hypot(xy[:, 0] - geo['xc'], xy[:, 1] - geo['yc']) < geo['D'] / 2
 
 
-def solidVolume(nodes, tets, colOf, ncol):
+def solidVolume(nodes, tets, colOf, ncol, geo):
     """Body volume inside each column, by sampling the disk x [0, dz]."""
+    D, dz = geo['D'], geo['dz']
     s = (np.arange(nDisk) + 0.5) / nDisk - 0.5
-    X, Y = np.meshgrid(mesh.xc + mesh.D * s, mesh.yc + mesh.D * s)
+    X, Y = np.meshgrid(geo['xc'] + D * s, geo['yc'] + D * s)
     xy = np.column_stack([X.ravel(), Y.ravel()])
-    xy = xy[insideBody(xy)]
-    z = (np.arange(nzDisk) + 0.5) / nzDisk * mesh.dz
+    xy = xy[insideBody(xy, geo)]
+    z = (np.arange(nzDisk) + 0.5) / nzDisk * dz
     P = np.column_stack([np.tile(xy, (nzDisk, 1)), np.repeat(z, len(xy))])
     col = colOf[bin1.owningNode(P, nodes, tets)]
-    dV = (mesh.D / nDisk) ** 2 * mesh.dz / nzDisk
+    dV = (D / nDisk) ** 2 * dz / nzDisk
     return np.bincount(col, minlength=ncol) * dV
 
 
-def frameWeights(fineNodes, fineTets, nodes, tets, colOf, ncol):
+def frameWeights(fineNodes, fineTets, nodes, tets, colOf, ncol, geo):
     """Sparse averaging operator for one AMR frame: (col, fineNode, volume) triples
     over fluid pieces, and the x-y centroid of each column's fluid pieces."""
     V = tetVolumes(fineNodes, fineTets)
@@ -108,7 +107,7 @@ def frameWeights(fineNodes, fineTets, nodes, tets, colOf, ncol):
     node = fineTets.ravel()
     w = np.repeat(V / 4, 4)
     col = colOf[bin1.owningNode(pts.reshape(-1, 3), nodes, tets)]
-    fluid = ~insideBody(fineNodes[node, :2])
+    fluid = ~insideBody(fineNodes[node, :2], geo)
     Vtot = w.sum()
 
     col, node, w, xy = col[fluid], node[fluid], w[fluid], pts.reshape(-1, 3)[fluid, :2]
@@ -131,18 +130,20 @@ def average(op, Wcol, q):
 
 # ============= Main per run =========================================================
 def binInputs(runName, nodes, tets):
-    runDir = binTargets.stageDir(runName)
+    runDir = binTargets.caseDir(runName)
     post = os.path.join(runDir, 'postpro')
+    geo = binTargets.geometry(runName)
     colOf, columns, Vcell = coarseColumns(nodes, tets)
     ncol = len(columns)
-    Vsolid = solidVolume(nodes, tets, colOf, ncol)
+    Vsolid = solidVolume(nodes, tets, colOf, ncol, geo)
 
     frames = sorted(f.split('.')[-1] for f in glob.glob(os.path.join(post, 'OUTPUT.top.[0-9]*'))
                     if not f.endswith('.dec'))
     acc = {k: [] for k in ('times', 'rho', 'rhou', 'rhoE', 'cen', 'Vf')}
     for fr in frames:
         fineNodes, fineTets = bin1.readDomain(os.path.join(post, f'OUTPUT.top.{fr}'))
-        op, Wcol, centroid, Vtot = frameWeights(fineNodes, fineTets, nodes, tets, colOf, ncol)
+        op, Wcol, centroid, Vtot = frameWeights(fineNodes, fineTets, nodes, tets, colOf, ncol,
+                                                geo)
         t, rho = readXpost(os.path.join(post, f'Density.{fr}.xpost'))
         _, vel = readXpost(os.path.join(post, f'Velocity.{fr}.xpost'))
         _, p = readXpost(os.path.join(post, f'Pressure.{fr}.xpost'))
@@ -168,20 +169,20 @@ def binInputs(runName, nodes, tets):
     T = p / (rho * R_gas)
     M = speed / np.sqrt(g * p / rho)
     mu = newRun.C_suth * T ** 1.5 / (T + newRun.S_suth)
-    ReD = rho * speed * mesh.D / mu
+    ReD = rho * speed * geo['D'] / mu
     flowAngle = np.arctan2(u[..., 1], u[..., 0])
 
     out = os.path.join(runDir, 'inputs.npz')
     np.savez(out, times=times, columns=columns, rho=rho, rhou=rhou, rhoE=rhoE, u=u, p=p,
              T=T, M=M, ReD=ReD, flowAngle=flowAngle, fluidCentroid=np.concatenate(acc['cen']),
              Vcell=Vcell, Vsolid=Vsolid, volFrac=Vsolid / Vcell,
-             VfluidFine=np.concatenate(acc['Vf']))
+             VfluidFine=np.concatenate(acc['Vf']), xc=geo['xc'], yc=geo['yc'], D=geo['D'])
 
     # checks / summary
     mach, rhoInf, pInf = binTargets.readInlet(os.path.join(runDir, 'FluidFile'))
     far = np.argmin(np.linalg.norm(columns - [mesh.x0 - mesh.Lx / 2 + mesh.h, 0.0], axis=1))
     print(f'   solid: sum Vsolid = {Vsolid.sum():.5f}, pi D^2/4 dz = '
-          f'{np.pi * mesh.D ** 2 / 4 * mesh.dz:.5f} m^3')
+          f'{np.pi * geo["D"] ** 2 / 4 * geo["dz"]:.5f} m^3')
     print(f'   inflow column ({columns[far, 0]:.2f}, {columns[far, 1]:.2f}) at last step: '
           f'rho/rho_inf = {rho[-1, far] / rhoInf:.5f}, p/p_inf = {p[-1, far] / pInf:.5f}, '
           f'M = {M[-1, far]:.4f} (inlet {mach:g}), Re_D = {ReD[-1, far]:.2f}')
@@ -202,7 +203,7 @@ def binInputs(runName, nodes, tets):
 if __name__ == '__main__':
     names = runNames or sorted(
         r for r in os.listdir(runsDir)
-        if glob.glob(os.path.join(binTargets.stageDir(r), 'postpro', '*.[0-9][0-9][0-9][0-9].xpost')))
+        if glob.glob(os.path.join(binTargets.caseDir(r), 'postpro', '*.[0-9][0-9][0-9][0-9].xpost')))
     nodes, tets = bin1.readDomain(bin1.domainFile)
     for name in names:
         binInputs(name, nodes, tets)

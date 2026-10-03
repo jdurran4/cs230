@@ -7,9 +7,4 @@
 module load icc/2018 ifort/2018
 module swap openmpi/3.0.0-gcc-7.1.0 openmpi/3.0.0-intel-2018.u1
 
-# Case directory: the whole chain (steady/, then production). Stage directory: just it.
-if [ -x runChain.sh ]; then
-    ./runChain.sh
-else
-    ./run.sh
-fi
+./run.sh

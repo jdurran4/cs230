@@ -1,14 +1,12 @@
 #!/bin/bash
-# Run AERO-F on this directory's FluidFile: one stage (steady or unsteady; see
-# newRun.py). Does not clean: run ./clean.sh first to start over (it deletes restart
-# files in references/). Writes DONE when the run finishes and left restart files.
+# Run AERO-F on this case's FluidFile (steady; see newRun.py). Does not clean: run
+# ./clean.sh first to start over (it deletes restart files in references/). Writes DONE
+# when the run finishes and left restart files.
 #   Cluster:      sbatch run.sbatch            (NP from --ntasks)
 #   Workstation:  ./run.sh [NP]                (default 8). To keep it running after
 #                 closing the terminal:  nohup ./run.sh 8 > /dev/null 2>&1 &   (output in log.out)
-# Both stages of a case must use the same NP: the unsteady stage reads the refined mesh
-# from steady/references/, which has a CPU map only for the NP steady ran with (the
-# steady stage reads the coarse mesh in data/: NP must be one of the -cpu counts in
-# preprocess.sh).
+# NP must be one of the -cpu counts in preprocess.sh (the run reads the coarse mesh in
+# data/).
 cd "$(dirname "$0")"
 ROOT=$PWD
 until [ -f "$ROOT/tools.sh" ] || [ "$ROOT" = / ]; do ROOT=$(dirname "$ROOT"); done

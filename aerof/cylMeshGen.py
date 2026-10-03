@@ -24,6 +24,7 @@ Flow is in +x (Alpha = 0, Beta = 0 in the fluid file).
 
 Usage: edit the parameters below, then run the script (e.g. play in VS Code).
 """
+import json
 import math
 import os
 
@@ -32,7 +33,7 @@ plot_mesh = True    # plot the mesh and save mesh.png (requires matplotlib)
 outdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sources')  # aerof/sources
 
 D = 1.0             # cylinder diameter
-xc, yc = -3.3, 0.1  # cylinder center
+xc, yc = -3.3, 0.1  # cylinder center written to sources/ (newRun.py moves it per case)
 Lx, Ly = 20.0, 20.0 # domain size in x and y, centered on (x0, y0)
 x0, y0 = 0.0, 0.0   # domain center
 h = D / 1.2           # coarse mesh spacing in x and y
@@ -155,7 +156,7 @@ def writeDomain(path, nodes, tets, faces):
 
 
 # ============= Embedded cylinder surface ============================================
-def cylinderSurface():
+def cylinderSurface(xc=xc, yc=yc, zOverhang=zOverhang):
     """Closed polygon of nTheta points, extruded from z = -zOverhang*dz to
     (1 + zOverhang)*dz. Points are offset by half a segment so no surface vertex sits
     on a fluid grid line of symmetry. Triangles are wound with outward normals.
@@ -184,7 +185,7 @@ def writeEmbedded(path, nodes, tris):
             out.write(f'{e}  4  {t[0]}  {t[1]}  {t[2]}\n')
 
 
-def minNodeToSurfaceDistance(fluid, ring):
+def minNodeToSurfaceDistance(fluid, ring, xc=xc, yc=yc):
     """Smallest x-y distance from a fluid node to the cylinder polygon. A fluid node
     lying on (or extremely near) the embedded surface can upset the intersector."""
     best = float('inf')
@@ -198,6 +199,43 @@ def minNodeToSurfaceDistance(fluid, ring):
             s = max(0.0, min(1.0, ((px - ax) * ex + (py - ay) * ey) / L2))
             best = min(best, math.hypot(px - ax - s * ex, py - ay - s * ey))
     return best
+
+
+# ============= Per-case geometry ====================================================
+# Every case shares the coarse fluid mesh (sources/domain.top -> data/OUTPUT); only the
+# cylinder moves. newRun.py writes each case's surface and a geometry.json next to it,
+# and the binning scripts read them back with loadGeometry. Runs made before per-case
+# geometry (no geometry.json) fall back to the module defaults and sources/.
+geometryName = 'geometry.json'
+
+
+def writeCaseGeometry(caseDir, xc, yc, zOverhang):
+    """Write caseDir/embeddedSurface.top and caseDir/geometry.json. Returns the smallest
+    x-y distance from a coarse fluid node to the cylinder polygon (as a fraction of h)."""
+    os.makedirs(caseDir, exist_ok=True)
+    ring, cylNodes, cylTris = cylinderSurface(xc, yc, zOverhang)
+    writeEmbedded(os.path.join(caseDir, 'embeddedSurface.top'), cylNodes, cylTris)
+    geo = dict(D=D, xc=xc, yc=yc, dz=dz, h=h, nTheta=nTheta, zOverhang=zOverhang)
+    with open(os.path.join(caseDir, geometryName), 'w') as fh:
+        json.dump(geo, fh, indent=2)
+    _, _, fluid = fluidNodes()
+    return minNodeToSurfaceDistance(fluid, ring, xc, yc) / h
+
+
+def loadGeometry(caseDir):
+    """Geometry of one case: D, xc, yc, dz, h, nTheta, zOverhang, plus surfFile (the
+    case's embeddedSurface.top) and span = tube length (1 + 2 zOverhang) dz, the length
+    AERO-F integrates the embedded force over (it includes the overhang)."""
+    path = os.path.join(caseDir, geometryName)
+    if os.path.isfile(path):
+        with open(path) as fh:
+            geo = json.load(fh)
+        geo['surfFile'] = os.path.join(caseDir, 'embeddedSurface.top')
+    else:
+        geo = dict(D=D, xc=xc, yc=yc, dz=dz, h=h, nTheta=nTheta, zOverhang=zOverhang,
+                   surfFile=os.path.join(outdir, 'embeddedSurface.top'))
+    geo['span'] = (1 + 2 * geo['zOverhang']) * geo['dz']
+    return geo
 
 
 # ============= Plotting =============================================================

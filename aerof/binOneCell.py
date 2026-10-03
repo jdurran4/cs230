@@ -32,7 +32,7 @@ import cylMeshGen as mesh
 import newRun
 
 # ============= User-defined parameters ==============================================
-runName = 'M1.5_Re100'
+runName = 'M1.5_Re100_x0.04_y0.12'
 mach, Re = 1.5, 100        # must match the run (for the Newtonian estimate)
 cell = None                # (x, y) of the column's grid point; None = largest |F|
 nzSample = 64              # z samples per structure node for the dual-cell footprint
@@ -112,7 +112,8 @@ def squareFractions(xy, columns):
 # ============= Main =================================================================
 if __name__ == '__main__':
     tF, Fs = chk.readSurfaceForce(os.path.join(runDir, 'postpro', 'EmbeddedSurfaceForce'))
-    X = chk.readSurfaceNodes(chk.surfFile)
+    geo = mesh.loadGeometry(runDir)
+    X = chk.readSurfaceNodes(geo['surfFile'])
     nodes, tets = readDomain(domainFile)
 
     # Quasi-2D: rings of nodes share x-y. Combine each (x, y) station's nodes.
@@ -160,7 +161,7 @@ if __name__ == '__main__':
     xcyc = xy.mean(axis=0)
     n = (xy - xcyc) / np.linalg.norm(xy - xcyc, axis=1, keepdims=True)      # out of body
     ds = np.pi * mesh.D / len(xy)
-    span = mesh.dz
+    span = geo['span']
     dFnewt = -q * cpMax * np.maximum(0.0, -n[:, :1]) ** 2 * n * ds * span   # (ns, 2)
     Fnewt = frac[:, c] @ dFnewt
     print(f'\n3. column at ({columns[c, 0]:.3f}, {columns[c, 1]:.3f}): '
@@ -169,7 +170,7 @@ if __name__ == '__main__':
           f'{np.degrees(np.arctan2(n[frac[:, c] > 0, 1], n[frac[:, c] > 0, 0])).max():.0f} deg')
     print(f'   AERO-F (avg)       F = ({FcolAvg[c, 0]:.4e}, {FcolAvg[c, 1]:.4e}) N')
     print(f'   modified Newtonian F = ({Fnewt[0]:.4e}, {Fnewt[1]:.4e}) N  '
-          f'(Cp_max = {cpMax:.3f}, span = dz = {span:.3f} m, leeward Cp = 0)')
+          f'(Cp_max = {cpMax:.3f}, span = tube length = {span:.3f} m, leeward Cp = 0)')
     print(f'   Newtonian whole body Fx = {dFnewt[:, 0].sum():.4e} N  vs AERO-F {total[0]:.4e} N')
     print(f'   source term on the FLUID in this column = -F = '
           f'({-FcolAvg[c, 0]:.4e}, {-FcolAvg[c, 1]:.4e}) N')

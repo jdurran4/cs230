@@ -7,8 +7,12 @@
 # onto it (postpro/<QOI>.NNNN.xpost) and writes postpro/<name>.e-s.NNNN. Open the
 # .e-s.* series in ParaView as one time series (the mesh can change between frames).
 # Output written before any refinement in this run has no frame number; it is on the
-# mesh the FluidFile reads (GeometryPrefix: the coarse mesh for a fresh run, the
-# previous stage's refined mesh for a restarted stage) and becomes frame 0000.
+# mesh the FluidFile reads (GeometryPrefix, the coarse mesh) and becomes frame 0000.
+#
+# The embedded surface (Input/EmbeddedSurface) goes to postpro/embeddedSurface.exo with
+# the per-node force postpro/EmbeddedSurfaceForce (force ON the body, p - p_inf + shear,
+# integrated over the whole tube) as the nodal field "Force", the same way the lab's
+# FSI_NAS PostProcess.FSI.structure.sh attaches EmbeddedSurfaceDisplacement.
 #
 # Serial:    ./postpro.sh
 # Parallel:  mpirun -np 12 bash postpro.sh   (frames split round-robin across ranks)
@@ -17,6 +21,7 @@ ROOT=$PWD
 until [ -f "$ROOT/tools.sh" ] || [ "$ROOT" = / ]; do ROOT=$(dirname "$ROOT"); done
 source "$ROOT/tools.sh"
 GEOM=$(sed -n 's/^[[:space:]]*GeometryPrefix[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' FluidFile)
+SURF=$(sed -n 's/^[[:space:]]*EmbeddedSurface[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' FluidFile)
 
 #module load netcdf/4.4.1.1
 
@@ -72,3 +77,9 @@ for k in "${!CON_FILES[@]}"; do
 
     $XP2EXO postpro/$NAME.top.$i postpro/$NAME.e-s.$i "${XPOSTS[@]}"
 done
+
+# Embedded surface with the per-node force
+if [ $RANK -eq 0 ] && [ -f postpro/EmbeddedSurfaceForce ]; then
+    echo "Embedded surface $SURF on rank $RANK"
+    $XP2EXO $SURF postpro/embeddedSurface.exo postpro/EmbeddedSurfaceForce
+fi

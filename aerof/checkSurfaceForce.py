@@ -25,14 +25,16 @@ import cylMeshGen as mesh
 import newRun
 
 # ============= User-defined parameters ==============================================
-runName = 'M1.5_Re100'
+runName = 'M1.5_Re100_x0.04_y0.12'
 mach, Re = 1.5, 100        # must match the run (for the stagnation pressure estimate)
 
 aerofDir = os.path.dirname(os.path.abspath(__file__))
-runDir = os.path.join(aerofDir, 'runs', runName)
+caseDir = os.path.join(aerofDir, 'runs', runName)
+runDir = caseDir
 forceFile = os.path.join(runDir, 'postpro', 'EmbeddedSurfaceForce')
 liftFile = os.path.join(runDir, 'postpro', 'LiftandDrag')
-surfFile = os.path.join(aerofDir, 'sources', 'embeddedSurface.top')
+geo = mesh.loadGeometry(caseDir)       # per-case cylinder (see cylMeshGen.loadGeometry)
+surfFile = geo['surfFile']
 
 
 # ============= Readers ==============================================================
@@ -107,10 +109,10 @@ if __name__ == '__main__':
     dFront = np.abs(np.abs(theta) - math.pi)                 # angle from the front point
     front = dFront < dFront.min() + 1e-9                      # nearest ring position, all z
     nTheta = len(np.unique(np.round(theta, 8)))
-    arc = math.pi * mesh.D / nTheta
+    arc = math.pi * geo['D'] / nTheta
     tAvg = tF > 0.5 * tF[-1]                          # average over the second half
     FxFront = Fs[tAvg][:, front, 0].sum(axis=1).mean()
-    dz = mesh.dz
+    dz = geo['dz']
     zLen = X[:, 2].max() - X[:, 2].min()
     print(f'\n3. effective span (stagnation nodes: {front.sum()}, arc per node {arc:.4f} m)')
     print(f'   Cp_max (normal shock pitot) = {cpMax:.3f},  p0 - p_inf = {cpMax * q:.4f} Pa')
@@ -122,5 +124,5 @@ if __name__ == '__main__':
 
     # Drag coefficient with either span, for reference
     Fx = Fsum[tAvg, 0].mean()
-    print(f'\n   Cd (2nd-half average) with span = dz: {Fx / (q * mesh.D * dz):.3f},  '
-          f'with span = tube length: {Fx / (q * mesh.D * zLen):.3f}')
+    print(f'\n   Cd (2nd-half average) with span = dz: {Fx / (q * geo["D"] * dz):.3f},  '
+          f'with span = tube length: {Fx / (q * geo["D"] * zLen):.3f}')
