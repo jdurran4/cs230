@@ -25,6 +25,7 @@ Writes runs/<run>/inputs.npz with, for ALL coarse columns (ncol) and output time
   u (nt, ncol, 2), p, T, M, ReD, flowAngle (nt, ncol)       derived from the averages
   fluidCentroid (nt, ncol, 2)                               x-y centroid of the fluid part
   Vcell, Vsolid, volFrac (ncol,), VfluidFine (nt, ncol)     geometry (m^3)
+  solidCentroid (ncol, 2)                                   x-y centroid of the body piece
   xc, yc, D                                                 cylinder center, diameter
 
 Usage: set runNames below (None = every run with postpro/*.NNNN.xpost), then run.
@@ -85,7 +86,8 @@ def insideBody(xy, geo):
 
 
 def solidVolume(nodes, tets, colOf, ncol, geo):
-    """Body volume inside each column, by sampling the disk x [0, dz]."""
+    """Body volume inside each column, by sampling the disk x [0, dz], and the x-y
+    centroid of that body piece (0 where the column holds no body)."""
     D, dz = geo['D'], geo['dz']
     s = (np.arange(nDisk) + 0.5) / nDisk - 0.5
     X, Y = np.meshgrid(geo['xc'] + D * s, geo['yc'] + D * s)
@@ -95,7 +97,10 @@ def solidVolume(nodes, tets, colOf, ncol, geo):
     P = np.column_stack([np.tile(xy, (nzDisk, 1)), np.repeat(z, len(xy))])
     col = colOf[bin1.owningNode(P, nodes, tets)]
     dV = (D / nDisk) ** 2 * dz / nzDisk
-    return np.bincount(col, minlength=ncol) * dV
+    n = np.bincount(col, minlength=ncol)
+    centroid = np.column_stack([np.bincount(col, weights=P[:, d], minlength=ncol)
+                                for d in range(2)]) / np.maximum(n, 1)[:, None]
+    return n * dV, centroid
 
 
 def frameWeights(fineNodes, fineTets, nodes, tets, colOf, ncol, geo):
@@ -135,7 +140,7 @@ def binInputs(runName, nodes, tets):
     geo = binTargets.geometry(runName)
     colOf, columns, Vcell = coarseColumns(nodes, tets)
     ncol = len(columns)
-    Vsolid = solidVolume(nodes, tets, colOf, ncol, geo)
+    Vsolid, solidCentroid = solidVolume(nodes, tets, colOf, ncol, geo)
 
     frames = sorted(f.split('.')[-1] for f in glob.glob(os.path.join(post, 'OUTPUT.top.[0-9]*'))
                     if not f.endswith('.dec'))
@@ -175,7 +180,7 @@ def binInputs(runName, nodes, tets):
     out = os.path.join(runDir, 'inputs.npz')
     np.savez(out, times=times, columns=columns, rho=rho, rhou=rhou, rhoE=rhoE, u=u, p=p,
              T=T, M=M, ReD=ReD, flowAngle=flowAngle, fluidCentroid=np.concatenate(acc['cen']),
-             Vcell=Vcell, Vsolid=Vsolid, volFrac=Vsolid / Vcell,
+             Vcell=Vcell, Vsolid=Vsolid, volFrac=Vsolid / Vcell, solidCentroid=solidCentroid,
              VfluidFine=np.concatenate(acc['Vf']), xc=geo['xc'], yc=geo['yc'], D=geo['D'])
 
     # checks / summary

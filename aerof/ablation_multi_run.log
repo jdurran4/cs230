@@ -1,0 +1,335 @@
+31300 rows kept of 31878, 316 runs
+   365s  base               SInf   mlp     cellRMSE 0.1092 +- 0.0003   CdErr 0.3457 +- 0.0003
+   366s  base               SInf   linear  cellRMSE 0.3018 +- 0.0000   CdErr 1.1990 +- 0.0004
+   368s  base               SInf   mean    cellRMSE 0.4342 +- 0.0000   CdErr 0.9942 +- 0.0001
+   724s  base               Sp_q   mlp     cellRMSE 134.1373 +- 11.9355   CdErr 402.8328 +- 40.5741
+   726s  base               Sp_q   linear  cellRMSE 43.0213 +- 0.1069   CdErr 203.4805 +- 0.6337
+   727s  base               Sp_q   mean    cellRMSE 8.3013 +- 0.0180   CdErr 44.6054 +- 0.1728
+  1085s  base               Sp_pq  mlp     cellRMSE 0.1026 +- 0.0001   CdErr 0.3059 +- 0.0012
+  1087s  base               Sp_pq  linear  cellRMSE 0.2803 +- 0.0000   CdErr 0.8952 +- 0.0002
+  1089s  base               Sp_pq  mean    cellRMSE 0.2915 +- 0.0000   CdErr 0.9876 +- 0.0003
+  1448s  base               SF_q   mlp     cellRMSE 2279.0456 +- 314.2394   CdErr 7867.8543 +- 1404.8020
+  1450s  base               SF_q   linear  cellRMSE 444.6354 +- 2.9552   CdErr 2078.3618 +- 10.6421
+  1451s  base               SF_q   mean    cellRMSE 83.2848 +- 1.0367   CdErr 440.5106 +- 4.6231
+  1809s  base               SF_pq  mlp     cellRMSE 0.1019 +- 0.0010   CdErr 0.3027 +- 0.0035
+  1811s  base               SF_pq  linear  cellRMSE 0.2824 +- 0.0000   CdErr 0.8259 +- 0.0003
+  1813s  base               SF_pq  mean    cellRMSE 0.4498 +- 0.0000   CdErr 0.9291 +- 0.0002
+  2171s  base+theta         SInf   mlp     cellRMSE 0.0938 +- 0.0012   CdErr 0.2929 +- 0.0065
+  2173s  base+theta         SInf   linear  cellRMSE 0.3004 +- 0.0000   CdErr 1.1683 +- 0.0004
+  2532s  base+theta         Sp_q   mlp     cellRMSE 180.2611 +- 19.8235   CdErr 546.0563 +- 77.9100
+  2534s  base+theta         Sp_q   linear  cellRMSE 45.8823 +- 0.1210   CdErr 217.0225 +- 0.7143
+  2894s  base+theta         Sp_pq  mlp     cellRMSE 0.0868 +- 0.0016   CdErr 0.2641 +- 0.0035
+  2896s  base+theta         Sp_pq  linear  cellRMSE 0.2806 +- 0.0000   CdErr 0.8713 +- 0.0002
+  3255s  base+theta         SF_q   mlp     cellRMSE 1865.7619 +- 104.6989   CdErr 5602.9559 +- 453.1256
+  3257s  base+theta         SF_q   linear  cellRMSE 467.9879 +- 2.7573   CdErr 2185.9773 +- 10.3711
+  3615s  base+theta         SF_pq  mlp     cellRMSE 0.0859 +- 0.0014   CdErr 0.2563 +- 0.0008
+  3617s  base+theta         SF_pq  linear  cellRMSE 0.2827 +- 0.0000   CdErr 0.8083 +- 0.0003
+  3977s  base+dh            SInf   mlp     cellRMSE 0.0793 +- 0.0005   CdErr 0.2271 +- 0.0031
+  3979s  base+dh            SInf   linear  cellRMSE 0.2374 +- 0.0000   CdErr 0.8163 +- 0.0003
+  4340s  base+dh            Sp_q   mlp     cellRMSE 184.7165 +- 38.0508   CdErr 629.3357 +- 173.6193
+  4341s  base+dh            Sp_q   linear  cellRMSE 43.2088 +- 0.1088   CdErr 204.7289 +- 0.6356
+  4701s  base+dh            Sp_pq  mlp     cellRMSE 0.0725 +- 0.0007   CdErr 0.2003 +- 0.0021
+  4703s  base+dh            Sp_pq  linear  cellRMSE 0.2320 +- 0.0000   CdErr 0.6017 +- 0.0002
+  5060s  base+dh            SF_q   mlp     cellRMSE 3053.0543 +- 866.2879   CdErr 10836.7015 +- 4062.7286
+  5062s  base+dh            SF_q   linear  cellRMSE 446.0591 +- 2.9674   CdErr 2087.7479 +- 10.5951
+  5420s  base+dh            SF_pq  mlp     cellRMSE 0.0719 +- 0.0002   CdErr 0.1965 +- 0.0003
+  5422s  base+dh            SF_pq  linear  cellRMSE 0.2329 +- 0.0000   CdErr 0.5376 +- 0.0002
+  5787s  base+theta+dh      SInf   mlp     cellRMSE 0.0557 +- 0.0004   CdErr 0.1583 +- 0.0017
+  5789s  base+theta+dh      SInf   linear  cellRMSE 0.2353 +- 0.0000   CdErr 0.7837 +- 0.0002
+  6156s  base+theta+dh      Sp_q   mlp     cellRMSE 194.3275 +- 35.6754   CdErr 553.3392 +- 71.8725
+  6158s  base+theta+dh      Sp_q   linear  cellRMSE 46.1200 +- 0.1194   CdErr 218.7086 +- 0.7127
+  6522s  base+theta+dh      Sp_pq  mlp     cellRMSE 0.0486 +- 0.0003   CdErr 0.1423 +- 0.0022
+  6524s  base+theta+dh      Sp_pq  linear  cellRMSE 0.2326 +- 0.0000   CdErr 0.5780 +- 0.0002
+  6889s  base+theta+dh      SF_q   mlp     cellRMSE 2130.1207 +- 155.3384   CdErr 6326.4020 +- 505.2555
+  6891s  base+theta+dh      SF_q   linear  cellRMSE 469.7481 +- 2.7426   CdErr 2198.6457 +- 10.3311
+  7257s  base+theta+dh      SF_pq  mlp     cellRMSE 0.0475 +- 0.0008   CdErr 0.1336 +- 0.0030
+  7259s  base+theta+dh      SF_pq  linear  cellRMSE 0.2322 +- 0.0000   CdErr 0.5158 +- 0.0002
+  7616s  base+r             SInf   mlp     cellRMSE 0.0621 +- 0.0012   CdErr 0.1758 +- 0.0060
+  7618s  base+r             SInf   linear  cellRMSE 0.3002 +- 0.0000   CdErr 1.1621 +- 0.0004
+  7977s  base+r             Sp_q   mlp     cellRMSE 188.9373 +- 28.2066   CdErr 548.5697 +- 90.2548
+  7979s  base+r             Sp_q   linear  cellRMSE 52.3708 +- 0.2259   CdErr 236.8221 +- 1.1594
+  8338s  base+r             Sp_pq  mlp     cellRMSE 0.0541 +- 0.0004   CdErr 0.1574 +- 0.0021
+  8340s  base+r             Sp_pq  linear  cellRMSE 0.2823 +- 0.0000   CdErr 0.8381 +- 0.0002
+  8698s  base+r             SF_q   mlp     cellRMSE 1957.9625 +- 69.5705   CdErr 5681.9644 +- 196.8998
+  8700s  base+r             SF_q   linear  cellRMSE 544.2584 +- 4.3851   CdErr 2428.8498 +- 14.9747
+  9067s  base+r             SF_pq  mlp     cellRMSE 0.0535 +- 0.0011   CdErr 0.1489 +- 0.0007
+  9069s  base+r             SF_pq  linear  cellRMSE 0.2847 +- 0.0000   CdErr 0.7722 +- 0.0002
+  9439s  base+theta+dh+Dh   SInf   mlp     cellRMSE 0.0387 +- 0.0003   CdErr 0.1030 +- 0.0020
+  9441s  base+theta+dh+Dh   SInf   linear  cellRMSE 0.2043 +- 0.0000   CdErr 0.4183 +- 0.0004
+  9811s  base+theta+dh+Dh   Sp_q   mlp     cellRMSE 252.8929 +- 14.5317   CdErr 855.5742 +- 54.4035
+  9813s  base+theta+dh+Dh   Sp_q   linear  cellRMSE 46.2077 +- 0.0942   CdErr 220.7938 +- 0.5765
+ 10183s  base+theta+dh+Dh   Sp_pq  mlp     cellRMSE 0.0292 +- 0.0006   CdErr 0.0887 +- 0.0017
+ 10185s  base+theta+dh+Dh   Sp_pq  linear  cellRMSE 0.2160 +- 0.0000   CdErr 0.5091 +- 0.0003
+ 10555s  base+theta+dh+Dh   SF_q   mlp     cellRMSE 2129.4696 +- 416.8875   CdErr 6549.5622 +- 1770.9747
+ 10557s  base+theta+dh+Dh   SF_q   linear  cellRMSE 471.4956 +- 3.4997   CdErr 2229.0615 +- 13.1698
+ 10926s  base+theta+dh+Dh   SF_pq  mlp     cellRMSE 0.0302 +- 0.0002   CdErr 0.0873 +- 0.0013
+ 10928s  base+theta+dh+Dh   SF_pq  linear  cellRMSE 0.2145 +- 0.0000   CdErr 0.4901 +- 0.0004
+ 11285s  all                SInf   mlp     cellRMSE 0.0377 +- 0.0001   CdErr 0.1030 +- 0.0007
+ 11287s  all                SInf   linear  cellRMSE 0.1962 +- 0.0000   CdErr 0.4504 +- 0.0004
+ 11643s  all                Sp_q   mlp     cellRMSE 194.1010 +- 30.0140   CdErr 581.8750 +- 84.7245
+ 11645s  all                Sp_q   linear  cellRMSE 54.5795 +- 0.2680   CdErr 236.9548 +- 1.3465
+ 12019s  all                Sp_pq  mlp     cellRMSE 0.0276 +- 0.0004   CdErr 0.0846 +- 0.0010
+ 12021s  all                Sp_pq  linear  cellRMSE 0.2121 +- 0.0000   CdErr 0.4724 +- 0.0003
+ 12385s  all                SF_q   mlp     cellRMSE 3137.3697 +- 467.2653   CdErr 9377.3926 +- 1942.3814
+ 12387s  all                SF_q   linear  cellRMSE 608.6370 +- 3.0502   CdErr 2486.0099 +- 10.5045
+ 12759s  all                SF_pq  mlp     cellRMSE 0.0291 +- 0.0002   CdErr 0.0846 +- 0.0002
+ 12761s  all                SF_pq  linear  cellRMSE 0.2115 +- 0.0000   CdErr 0.4665 +- 0.0004
+ 13126s  b+t+dh+Dh -Mbar    SInf   mlp     cellRMSE 0.0459 +- 0.0003   CdErr 0.1074 +- 0.0016
+ 13128s  b+t+dh+Dh -Mbar    SInf   linear  cellRMSE 0.2060 +- 0.0000   CdErr 0.3873 +- 0.0003
+ 13495s  b+t+dh+Dh -Mbar    Sp_q   mlp     cellRMSE 178.0183 +- 17.0426   CdErr 569.8201 +- 61.7916
+ 13497s  b+t+dh+Dh -Mbar    Sp_q   linear  cellRMSE 40.5168 +- 0.2421   CdErr 206.8691 +- 1.2522
+ 13862s  b+t+dh+Dh -Mbar    Sp_pq  mlp     cellRMSE 0.0595 +- 0.0003   CdErr 0.1931 +- 0.0006
+ 13864s  b+t+dh+Dh -Mbar    Sp_pq  linear  cellRMSE 0.2168 +- 0.0000   CdErr 0.5312 +- 0.0003
+ 14229s  b+t+dh+Dh -Mbar    SF_q   mlp     cellRMSE 2096.1070 +- 461.5560   CdErr 5721.8581 +- 760.5784
+ 14231s  b+t+dh+Dh -Mbar    SF_q   linear  cellRMSE 422.4781 +- 3.5608   CdErr 2105.7312 +- 16.0469
+ 14597s  b+t+dh+Dh -Mbar    SF_pq  mlp     cellRMSE 0.0478 +- 0.0004   CdErr 0.1640 +- 0.0016
+ 14599s  b+t+dh+Dh -Mbar    SF_pq  linear  cellRMSE 0.2149 +- 0.0000   CdErr 0.5182 +- 0.0005
+ 14964s  b+t+dh+Dh -logReD  SInf   mlp     cellRMSE 0.0500 +- 0.0007   CdErr 0.1540 +- 0.0025
+ 14966s  b+t+dh+Dh -logReD  SInf   linear  cellRMSE 0.2045 +- 0.0000   CdErr 0.3962 +- 0.0002
+ 15331s  b+t+dh+Dh -logReD  Sp_q   mlp     cellRMSE 153.5420 +- 39.9548   CdErr 443.1033 +- 120.0191
+ 15333s  b+t+dh+Dh -logReD  Sp_q   linear  cellRMSE 18.5314 +- 0.0324   CdErr 62.4014 +- 0.1114
+ 15699s  b+t+dh+Dh -logReD  Sp_pq  mlp     cellRMSE 0.0545 +- 0.0002   CdErr 0.1965 +- 0.0006
+ 15701s  b+t+dh+Dh -logReD  Sp_pq  linear  cellRMSE 0.2188 +- 0.0000   CdErr 0.5544 +- 0.0004
+ 16068s  b+t+dh+Dh -logReD  SF_q   mlp     cellRMSE 1263.5397 +- 78.4156   CdErr 3621.0775 +- 210.1422
+ 16070s  b+t+dh+Dh -logReD  SF_q   linear  cellRMSE 229.4438 +- 0.4960   CdErr 737.6037 +- 2.7135
+ 16435s  b+t+dh+Dh -logReD  SF_pq  mlp     cellRMSE 0.0559 +- 0.0002   CdErr 0.2033 +- 0.0024
+ 16437s  b+t+dh+Dh -logReD  SF_pq  linear  cellRMSE 0.2167 +- 0.0000   CdErr 0.5287 +- 0.0005
+ 16778s  b+t+dh+Dh -volFrac SInf   mlp     cellRMSE 0.0400 +- 0.0006   CdErr 0.1061 +- 0.0015
+ 16780s  b+t+dh+Dh -volFrac SInf   linear  cellRMSE 0.2154 +- 0.0000   CdErr 0.4758 +- 0.0005
+ 17147s  b+t+dh+Dh -volFrac Sp_q   mlp     cellRMSE 178.4608 +- 10.2902   CdErr 546.6380 +- 43.8077
+ 17149s  b+t+dh+Dh -volFrac Sp_q   linear  cellRMSE 46.5600 +- 0.0837   CdErr 224.1224 +- 0.5326
+ 17513s  b+t+dh+Dh -volFrac Sp_pq  mlp     cellRMSE 0.0298 +- 0.0004   CdErr 0.0901 +- 0.0012
+ 17515s  b+t+dh+Dh -volFrac Sp_pq  linear  cellRMSE 0.2228 +- 0.0000   CdErr 0.5379 +- 0.0004
+ 17881s  b+t+dh+Dh -volFrac SF_q   mlp     cellRMSE 2225.1950 +- 146.3752   CdErr 6748.9487 +- 504.1105
+ 17883s  b+t+dh+Dh -volFrac SF_q   linear  cellRMSE 474.6658 +- 3.4932   CdErr 2260.2364 +- 13.6820
+ 18249s  b+t+dh+Dh -volFrac SF_pq  mlp     cellRMSE 0.0314 +- 0.0003   CdErr 0.0903 +- 0.0006
+ 18250s  b+t+dh+Dh -volFrac SF_pq  linear  cellRMSE 0.2216 +- 0.0000   CdErr 0.5298 +- 0.0004
+ 18616s  b+t+dh+Dh -Npar    SInf   mlp     cellRMSE 0.0452 +- 0.0008   CdErr 0.1167 +- 0.0023
+ 18618s  b+t+dh+Dh -Npar    SInf   linear  cellRMSE 0.2535 +- 0.0000   CdErr 0.5117 +- 0.0004
+ 18984s  b+t+dh+Dh -Npar    Sp_q   mlp     cellRMSE 172.6283 +- 27.7209   CdErr 542.4116 +- 119.0837
+ 18985s  b+t+dh+Dh -Npar    Sp_q   linear  cellRMSE 46.0776 +- 0.1009   CdErr 219.5762 +- 0.5853
+ 19351s  b+t+dh+Dh -Npar    Sp_pq  mlp     cellRMSE 0.0323 +- 0.0002   CdErr 0.0952 +- 0.0026
+ 19353s  b+t+dh+Dh -Npar    Sp_pq  linear  cellRMSE 0.2181 +- 0.0000   CdErr 0.5272 +- 0.0003
+ 19718s  b+t+dh+Dh -Npar    SF_q   mlp     cellRMSE 1975.6745 +- 31.2013   CdErr 5875.5919 +- 313.2981
+ 19720s  b+t+dh+Dh -Npar    SF_q   linear  cellRMSE 468.4157 +- 3.3635   CdErr 2214.9376 +- 12.4564
+ 20084s  b+t+dh+Dh -Npar    SF_pq  mlp     cellRMSE 0.0371 +- 0.0003   CdErr 0.1011 +- 0.0021
+ 20086s  b+t+dh+Dh -Npar    SF_pq  linear  cellRMSE 0.2481 +- 0.0000   CdErr 0.4928 +- 0.0004
+ 20451s  b+t+dh+Dh -Nperp   SInf   mlp     cellRMSE 0.0422 +- 0.0002   CdErr 0.1063 +- 0.0010
+ 20453s  b+t+dh+Dh -Nperp   SInf   linear  cellRMSE 0.2264 +- 0.0000   CdErr 0.4170 +- 0.0004
+ 20818s  b+t+dh+Dh -Nperp   Sp_q   mlp     cellRMSE 200.8578 +- 36.9350   CdErr 678.0166 +- 176.2416
+ 20820s  b+t+dh+Dh -Nperp   Sp_q   linear  cellRMSE 46.2198 +- 0.0932   CdErr 220.8831 +- 0.5683
+ 21185s  b+t+dh+Dh -Nperp   Sp_pq  mlp     cellRMSE 0.0292 +- 0.0006   CdErr 0.0863 +- 0.0019
+ 21187s  b+t+dh+Dh -Nperp   Sp_pq  linear  cellRMSE 0.2159 +- 0.0000   CdErr 0.5072 +- 0.0003
+ 21552s  b+t+dh+Dh -Nperp   SF_q   mlp     cellRMSE 1832.3792 +- 176.2597   CdErr 5592.5023 +- 918.4404
+ 21554s  b+t+dh+Dh -Nperp   SF_q   linear  cellRMSE 471.5847 +- 3.5050   CdErr 2229.8973 +- 13.2192
+ 21919s  b+t+dh+Dh -Nperp   SF_pq  mlp     cellRMSE 0.0346 +- 0.0012   CdErr 0.0900 +- 0.0026
+ 21921s  b+t+dh+Dh -Nperp   SF_pq  linear  cellRMSE 0.2643 +- 0.0000   CdErr 0.4390 +- 0.0004
+ 22286s  b+t+dh+Dh -cosT    SInf   mlp     cellRMSE 0.0397 +- 0.0005   CdErr 0.1056 +- 0.0011
+ 22288s  b+t+dh+Dh -cosT    SInf   linear  cellRMSE 0.2048 +- 0.0000   CdErr 0.4239 +- 0.0004
+ 22652s  b+t+dh+Dh -cosT    Sp_q   mlp     cellRMSE 155.7680 +- 1.0972   CdErr 461.0483 +- 4.4740
+ 22654s  b+t+dh+Dh -cosT    Sp_q   linear  cellRMSE 44.2817 +- 0.0633   CdErr 212.9519 +- 0.4098
+ 23020s  b+t+dh+Dh -cosT    Sp_pq  mlp     cellRMSE 0.0307 +- 0.0002   CdErr 0.0915 +- 0.0004
+ 23022s  b+t+dh+Dh -cosT    Sp_pq  linear  cellRMSE 0.2157 +- 0.0000   CdErr 0.5100 +- 0.0003
+ 23388s  b+t+dh+Dh -cosT    SF_q   mlp     cellRMSE 2038.6306 +- 19.2991   CdErr 5996.2001 +- 81.8249
+ 23390s  b+t+dh+Dh -cosT    SF_q   linear  cellRMSE 457.2332 +- 3.6941   CdErr 2175.8474 +- 13.5009
+ 23754s  b+t+dh+Dh -cosT    SF_pq  mlp     cellRMSE 0.0315 +- 0.0002   CdErr 0.0916 +- 0.0017
+ 23756s  b+t+dh+Dh -cosT    SF_pq  linear  cellRMSE 0.2148 +- 0.0000   CdErr 0.4938 +- 0.0004
+ 24121s  b+t+dh+Dh -sinT    SInf   mlp     cellRMSE 0.0395 +- 0.0004   CdErr 0.1053 +- 0.0013
+ 24123s  b+t+dh+Dh -sinT    SInf   linear  cellRMSE 0.2044 +- 0.0000   CdErr 0.4187 +- 0.0003
+ 24489s  b+t+dh+Dh -sinT    Sp_q   mlp     cellRMSE 187.9226 +- 22.6933   CdErr 613.6103 +- 101.9459
+ 24491s  b+t+dh+Dh -sinT    Sp_q   linear  cellRMSE 45.9179 +- 0.0893   CdErr 219.2501 +- 0.5965
+ 24857s  b+t+dh+Dh -sinT    Sp_pq  mlp     cellRMSE 0.0313 +- 0.0002   CdErr 0.0890 +- 0.0005
+ 24859s  b+t+dh+Dh -sinT    Sp_pq  linear  cellRMSE 0.2162 +- 0.0000   CdErr 0.5069 +- 0.0003
+ 25225s  b+t+dh+Dh -sinT    SF_q   mlp     cellRMSE 1906.5434 +- 129.8028   CdErr 5898.5575 +- 371.2964
+ 25227s  b+t+dh+Dh -sinT    SF_q   linear  cellRMSE 467.9097 +- 3.4898   CdErr 2207.2401 +- 13.0096
+ 25588s  b+t+dh+Dh -sinT    SF_pq  mlp     cellRMSE 0.0316 +- 0.0005   CdErr 0.0861 +- 0.0012
+ 25590s  b+t+dh+Dh -sinT    SF_pq  linear  cellRMSE 0.2159 +- 0.0000   CdErr 0.4917 +- 0.0004
+ 25955s  b+t+dh+Dh -dh      SInf   mlp     cellRMSE 0.0397 +- 0.0003   CdErr 0.1059 +- 0.0027
+ 25957s  b+t+dh+Dh -dh      SInf   linear  cellRMSE 0.2431 +- 0.0000   CdErr 0.5998 +- 0.0004
+ 26316s  b+t+dh+Dh -dh      Sp_q   mlp     cellRMSE 195.6454 +- 29.8600   CdErr 617.5038 +- 107.0044
+ 26318s  b+t+dh+Dh -dh      Sp_q   linear  cellRMSE 46.1231 +- 0.0917   CdErr 220.3898 +- 0.5576
+ 26684s  b+t+dh+Dh -dh      Sp_pq  mlp     cellRMSE 0.0310 +- 0.0006   CdErr 0.0919 +- 0.0022
+ 26686s  b+t+dh+Dh -dh      Sp_pq  linear  cellRMSE 0.2437 +- 0.0000   CdErr 0.6304 +- 0.0004
+ 27051s  b+t+dh+Dh -dh      SF_q   mlp     cellRMSE 1831.1703 +- 87.8444   CdErr 5431.6982 +- 380.6769
+ 27053s  b+t+dh+Dh -dh      SF_q   linear  cellRMSE 471.3548 +- 3.4085   CdErr 2227.6690 +- 12.8311
+ 27418s  b+t+dh+Dh -dh      SF_pq  mlp     cellRMSE 0.0313 +- 0.0002   CdErr 0.0897 +- 0.0005
+ 27420s  b+t+dh+Dh -dh      SF_pq  linear  cellRMSE 0.2442 +- 0.0000   CdErr 0.6168 +- 0.0004
+ 27786s  b+t+dh+Dh -Dh      SInf   mlp     cellRMSE 0.0557 +- 0.0004   CdErr 0.1583 +- 0.0017
+ 27788s  b+t+dh+Dh -Dh      SInf   linear  cellRMSE 0.2353 +- 0.0000   CdErr 0.7837 +- 0.0002
+ 28153s  b+t+dh+Dh -Dh      Sp_q   mlp     cellRMSE 194.3275 +- 35.6754   CdErr 553.3392 +- 71.8725
+ 28155s  b+t+dh+Dh -Dh      Sp_q   linear  cellRMSE 46.1200 +- 0.1194   CdErr 218.7086 +- 0.7127
+ 28520s  b+t+dh+Dh -Dh      Sp_pq  mlp     cellRMSE 0.0486 +- 0.0003   CdErr 0.1423 +- 0.0022
+ 28522s  b+t+dh+Dh -Dh      Sp_pq  linear  cellRMSE 0.2326 +- 0.0000   CdErr 0.5780 +- 0.0002
+ 28886s  b+t+dh+Dh -Dh      SF_q   mlp     cellRMSE 2130.1207 +- 155.3384   CdErr 6326.4020 +- 505.2555
+ 28888s  b+t+dh+Dh -Dh      SF_q   linear  cellRMSE 469.7481 +- 2.7426   CdErr 2198.6457 +- 10.3311
+ 29236s  b+t+dh+Dh -Dh      SF_pq  mlp     cellRMSE 0.0475 +- 0.0008   CdErr 0.1336 +- 0.0030
+ 29238s  b+t+dh+Dh -Dh      SF_pq  linear  cellRMSE 0.2322 +- 0.0000   CdErr 0.5158 +- 0.0002
+
+sorted by cellRMSE (S / (q_inf D)), split by run, 5 folds, 3 seeds; typical |S / (q_inf D)| of a cell: 0.5130 RMS
+input set          target model           cellRMSE             CdErr
+all                Sp_pq  mlp       0.0276 +- 0.0004    0.0846 +- 0.0010
+all                SF_pq  mlp       0.0291 +- 0.0002    0.0846 +- 0.0002
+b+t+dh+Dh -Nperp   Sp_pq  mlp       0.0292 +- 0.0006    0.0863 +- 0.0019
+base+theta+dh+Dh   Sp_pq  mlp       0.0292 +- 0.0006    0.0887 +- 0.0017
+b+t+dh+Dh -volFrac Sp_pq  mlp       0.0298 +- 0.0004    0.0901 +- 0.0012
+base+theta+dh+Dh   SF_pq  mlp       0.0302 +- 0.0002    0.0873 +- 0.0013
+b+t+dh+Dh -cosT    Sp_pq  mlp       0.0307 +- 0.0002    0.0915 +- 0.0004
+b+t+dh+Dh -dh      Sp_pq  mlp       0.0310 +- 0.0006    0.0919 +- 0.0022
+b+t+dh+Dh -sinT    Sp_pq  mlp       0.0313 +- 0.0002    0.0890 +- 0.0005
+b+t+dh+Dh -dh      SF_pq  mlp       0.0313 +- 0.0002    0.0897 +- 0.0005
+b+t+dh+Dh -volFrac SF_pq  mlp       0.0314 +- 0.0003    0.0903 +- 0.0006
+b+t+dh+Dh -cosT    SF_pq  mlp       0.0315 +- 0.0002    0.0916 +- 0.0017
+b+t+dh+Dh -sinT    SF_pq  mlp       0.0316 +- 0.0005    0.0861 +- 0.0012
+b+t+dh+Dh -Npar    Sp_pq  mlp       0.0323 +- 0.0002    0.0952 +- 0.0026
+b+t+dh+Dh -Nperp   SF_pq  mlp       0.0346 +- 0.0012    0.0900 +- 0.0026
+b+t+dh+Dh -Npar    SF_pq  mlp       0.0371 +- 0.0003    0.1011 +- 0.0021
+all                SInf   mlp       0.0377 +- 0.0001    0.1030 +- 0.0007
+base+theta+dh+Dh   SInf   mlp       0.0387 +- 0.0003    0.1030 +- 0.0020
+b+t+dh+Dh -sinT    SInf   mlp       0.0395 +- 0.0004    0.1053 +- 0.0013
+b+t+dh+Dh -cosT    SInf   mlp       0.0397 +- 0.0005    0.1056 +- 0.0011
+b+t+dh+Dh -dh      SInf   mlp       0.0397 +- 0.0003    0.1059 +- 0.0027
+b+t+dh+Dh -volFrac SInf   mlp       0.0400 +- 0.0006    0.1061 +- 0.0015
+b+t+dh+Dh -Nperp   SInf   mlp       0.0422 +- 0.0002    0.1063 +- 0.0010
+b+t+dh+Dh -Npar    SInf   mlp       0.0452 +- 0.0008    0.1167 +- 0.0023
+b+t+dh+Dh -Mbar    SInf   mlp       0.0459 +- 0.0003    0.1074 +- 0.0016
+base+theta+dh      SF_pq  mlp       0.0475 +- 0.0008    0.1336 +- 0.0030
+b+t+dh+Dh -Dh      SF_pq  mlp       0.0475 +- 0.0008    0.1336 +- 0.0030
+b+t+dh+Dh -Mbar    SF_pq  mlp       0.0478 +- 0.0004    0.1640 +- 0.0016
+base+theta+dh      Sp_pq  mlp       0.0486 +- 0.0003    0.1423 +- 0.0022
+b+t+dh+Dh -Dh      Sp_pq  mlp       0.0486 +- 0.0003    0.1423 +- 0.0022
+b+t+dh+Dh -logReD  SInf   mlp       0.0500 +- 0.0007    0.1540 +- 0.0025
+base+r             SF_pq  mlp       0.0535 +- 0.0011    0.1489 +- 0.0007
+base+r             Sp_pq  mlp       0.0541 +- 0.0004    0.1574 +- 0.0021
+b+t+dh+Dh -logReD  Sp_pq  mlp       0.0545 +- 0.0002    0.1965 +- 0.0006
+base+theta+dh      SInf   mlp       0.0557 +- 0.0004    0.1583 +- 0.0017
+b+t+dh+Dh -Dh      SInf   mlp       0.0557 +- 0.0004    0.1583 +- 0.0017
+b+t+dh+Dh -logReD  SF_pq  mlp       0.0559 +- 0.0002    0.2033 +- 0.0024
+b+t+dh+Dh -Mbar    Sp_pq  mlp       0.0595 +- 0.0003    0.1931 +- 0.0006
+base+r             SInf   mlp       0.0621 +- 0.0012    0.1758 +- 0.0060
+base+dh            SF_pq  mlp       0.0719 +- 0.0002    0.1965 +- 0.0003
+base+dh            Sp_pq  mlp       0.0725 +- 0.0007    0.2003 +- 0.0021
+base+dh            SInf   mlp       0.0793 +- 0.0005    0.2271 +- 0.0031
+base+theta         SF_pq  mlp       0.0859 +- 0.0014    0.2563 +- 0.0008
+base+theta         Sp_pq  mlp       0.0868 +- 0.0016    0.2641 +- 0.0035
+base+theta         SInf   mlp       0.0938 +- 0.0012    0.2929 +- 0.0065
+base               SF_pq  mlp       0.1019 +- 0.0010    0.3027 +- 0.0035
+base               Sp_pq  mlp       0.1026 +- 0.0001    0.3059 +- 0.0012
+base               SInf   mlp       0.1092 +- 0.0003    0.3457 +- 0.0003
+all                SInf   linear    0.1962 +- 0.0000    0.4504 +- 0.0004
+base+theta+dh+Dh   SInf   linear    0.2043 +- 0.0000    0.4183 +- 0.0004
+b+t+dh+Dh -sinT    SInf   linear    0.2044 +- 0.0000    0.4187 +- 0.0003
+b+t+dh+Dh -logReD  SInf   linear    0.2045 +- 0.0000    0.3962 +- 0.0002
+b+t+dh+Dh -cosT    SInf   linear    0.2048 +- 0.0000    0.4239 +- 0.0004
+b+t+dh+Dh -Mbar    SInf   linear    0.2060 +- 0.0000    0.3873 +- 0.0003
+all                SF_pq  linear    0.2115 +- 0.0000    0.4665 +- 0.0004
+all                Sp_pq  linear    0.2121 +- 0.0000    0.4724 +- 0.0003
+base+theta+dh+Dh   SF_pq  linear    0.2145 +- 0.0000    0.4901 +- 0.0004
+b+t+dh+Dh -cosT    SF_pq  linear    0.2148 +- 0.0000    0.4938 +- 0.0004
+b+t+dh+Dh -Mbar    SF_pq  linear    0.2149 +- 0.0000    0.5182 +- 0.0005
+b+t+dh+Dh -volFrac SInf   linear    0.2154 +- 0.0000    0.4758 +- 0.0005
+b+t+dh+Dh -cosT    Sp_pq  linear    0.2157 +- 0.0000    0.5100 +- 0.0003
+b+t+dh+Dh -sinT    SF_pq  linear    0.2159 +- 0.0000    0.4917 +- 0.0004
+b+t+dh+Dh -Nperp   Sp_pq  linear    0.2159 +- 0.0000    0.5072 +- 0.0003
+base+theta+dh+Dh   Sp_pq  linear    0.2160 +- 0.0000    0.5091 +- 0.0003
+b+t+dh+Dh -sinT    Sp_pq  linear    0.2162 +- 0.0000    0.5069 +- 0.0003
+b+t+dh+Dh -logReD  SF_pq  linear    0.2167 +- 0.0000    0.5287 +- 0.0005
+b+t+dh+Dh -Mbar    Sp_pq  linear    0.2168 +- 0.0000    0.5312 +- 0.0003
+b+t+dh+Dh -Npar    Sp_pq  linear    0.2181 +- 0.0000    0.5272 +- 0.0003
+b+t+dh+Dh -logReD  Sp_pq  linear    0.2188 +- 0.0000    0.5544 +- 0.0004
+b+t+dh+Dh -volFrac SF_pq  linear    0.2216 +- 0.0000    0.5298 +- 0.0004
+b+t+dh+Dh -volFrac Sp_pq  linear    0.2228 +- 0.0000    0.5379 +- 0.0004
+b+t+dh+Dh -Nperp   SInf   linear    0.2264 +- 0.0000    0.4170 +- 0.0004
+base+dh            Sp_pq  linear    0.2320 +- 0.0000    0.6017 +- 0.0002
+base+theta+dh      SF_pq  linear    0.2322 +- 0.0000    0.5158 +- 0.0002
+b+t+dh+Dh -Dh      SF_pq  linear    0.2322 +- 0.0000    0.5158 +- 0.0002
+base+theta+dh      Sp_pq  linear    0.2326 +- 0.0000    0.5780 +- 0.0002
+b+t+dh+Dh -Dh      Sp_pq  linear    0.2326 +- 0.0000    0.5780 +- 0.0002
+base+dh            SF_pq  linear    0.2329 +- 0.0000    0.5376 +- 0.0002
+base+theta+dh      SInf   linear    0.2353 +- 0.0000    0.7837 +- 0.0002
+b+t+dh+Dh -Dh      SInf   linear    0.2353 +- 0.0000    0.7837 +- 0.0002
+base+dh            SInf   linear    0.2374 +- 0.0000    0.8163 +- 0.0003
+b+t+dh+Dh -dh      SInf   linear    0.2431 +- 0.0000    0.5998 +- 0.0004
+b+t+dh+Dh -dh      Sp_pq  linear    0.2437 +- 0.0000    0.6304 +- 0.0004
+b+t+dh+Dh -dh      SF_pq  linear    0.2442 +- 0.0000    0.6168 +- 0.0004
+b+t+dh+Dh -Npar    SF_pq  linear    0.2481 +- 0.0000    0.4928 +- 0.0004
+b+t+dh+Dh -Npar    SInf   linear    0.2535 +- 0.0000    0.5117 +- 0.0004
+b+t+dh+Dh -Nperp   SF_pq  linear    0.2643 +- 0.0000    0.4390 +- 0.0004
+base               Sp_pq  linear    0.2803 +- 0.0000    0.8952 +- 0.0002
+base+theta         Sp_pq  linear    0.2806 +- 0.0000    0.8713 +- 0.0002
+base+r             Sp_pq  linear    0.2823 +- 0.0000    0.8381 +- 0.0002
+base               SF_pq  linear    0.2824 +- 0.0000    0.8259 +- 0.0003
+base+theta         SF_pq  linear    0.2827 +- 0.0000    0.8083 +- 0.0003
+base+r             SF_pq  linear    0.2847 +- 0.0000    0.7722 +- 0.0002
+base               Sp_pq  mean      0.2915 +- 0.0000    0.9876 +- 0.0003
+base+r             SInf   linear    0.3002 +- 0.0000    1.1621 +- 0.0004
+base+theta         SInf   linear    0.3004 +- 0.0000    1.1683 +- 0.0004
+base               SInf   linear    0.3018 +- 0.0000    1.1990 +- 0.0004
+base               SInf   mean      0.4342 +- 0.0000    0.9942 +- 0.0001
+base               SF_pq  mean      0.4498 +- 0.0000    0.9291 +- 0.0002
+base               Sp_q   mean      8.3013 +- 0.0180   44.6054 +- 0.1728
+b+t+dh+Dh -logReD  Sp_q   linear   18.5314 +- 0.0324   62.4014 +- 0.1114
+b+t+dh+Dh -Mbar    Sp_q   linear   40.5168 +- 0.2421  206.8691 +- 1.2522
+base               Sp_q   linear   43.0213 +- 0.1069  203.4805 +- 0.6337
+base+dh            Sp_q   linear   43.2088 +- 0.1088  204.7289 +- 0.6356
+b+t+dh+Dh -cosT    Sp_q   linear   44.2817 +- 0.0633  212.9519 +- 0.4098
+base+theta         Sp_q   linear   45.8823 +- 0.1210  217.0225 +- 0.7143
+b+t+dh+Dh -sinT    Sp_q   linear   45.9179 +- 0.0893  219.2501 +- 0.5965
+b+t+dh+Dh -Npar    Sp_q   linear   46.0776 +- 0.1009  219.5762 +- 0.5853
+base+theta+dh      Sp_q   linear   46.1200 +- 0.1194  218.7086 +- 0.7127
+b+t+dh+Dh -Dh      Sp_q   linear   46.1200 +- 0.1194  218.7086 +- 0.7127
+b+t+dh+Dh -dh      Sp_q   linear   46.1231 +- 0.0917  220.3898 +- 0.5576
+base+theta+dh+Dh   Sp_q   linear   46.2077 +- 0.0942  220.7938 +- 0.5765
+b+t+dh+Dh -Nperp   Sp_q   linear   46.2198 +- 0.0932  220.8831 +- 0.5683
+b+t+dh+Dh -volFrac Sp_q   linear   46.5600 +- 0.0837  224.1224 +- 0.5326
+base+r             Sp_q   linear   52.3708 +- 0.2259  236.8221 +- 1.1594
+all                Sp_q   linear   54.5795 +- 0.2680  236.9548 +- 1.3465
+base               SF_q   mean     83.2848 +- 1.0367  440.5106 +- 4.6231
+base               Sp_q   mlp     134.1373 +- 11.9355  402.8328 +- 40.5741
+b+t+dh+Dh -logReD  Sp_q   mlp     153.5420 +- 39.9548  443.1033 +- 120.0191
+b+t+dh+Dh -cosT    Sp_q   mlp     155.7680 +- 1.0972  461.0483 +- 4.4740
+b+t+dh+Dh -Npar    Sp_q   mlp     172.6283 +- 27.7209  542.4116 +- 119.0837
+b+t+dh+Dh -Mbar    Sp_q   mlp     178.0183 +- 17.0426  569.8201 +- 61.7916
+b+t+dh+Dh -volFrac Sp_q   mlp     178.4608 +- 10.2902  546.6380 +- 43.8077
+base+theta         Sp_q   mlp     180.2611 +- 19.8235  546.0563 +- 77.9100
+base+dh            Sp_q   mlp     184.7165 +- 38.0508  629.3357 +- 173.6193
+b+t+dh+Dh -sinT    Sp_q   mlp     187.9226 +- 22.6933  613.6103 +- 101.9459
+base+r             Sp_q   mlp     188.9373 +- 28.2066  548.5697 +- 90.2548
+all                Sp_q   mlp     194.1010 +- 30.0140  581.8750 +- 84.7245
+base+theta+dh      Sp_q   mlp     194.3275 +- 35.6754  553.3392 +- 71.8725
+b+t+dh+Dh -Dh      Sp_q   mlp     194.3275 +- 35.6754  553.3392 +- 71.8725
+b+t+dh+Dh -dh      Sp_q   mlp     195.6454 +- 29.8600  617.5038 +- 107.0044
+b+t+dh+Dh -Nperp   Sp_q   mlp     200.8578 +- 36.9350  678.0166 +- 176.2416
+b+t+dh+Dh -logReD  SF_q   linear  229.4438 +- 0.4960  737.6037 +- 2.7135
+base+theta+dh+Dh   Sp_q   mlp     252.8929 +- 14.5317  855.5742 +- 54.4035
+b+t+dh+Dh -Mbar    SF_q   linear  422.4781 +- 3.5608 2105.7312 +- 16.0469
+base               SF_q   linear  444.6354 +- 2.9552 2078.3618 +- 10.6421
+base+dh            SF_q   linear  446.0591 +- 2.9674 2087.7479 +- 10.5951
+b+t+dh+Dh -cosT    SF_q   linear  457.2332 +- 3.6941 2175.8474 +- 13.5009
+b+t+dh+Dh -sinT    SF_q   linear  467.9097 +- 3.4898 2207.2401 +- 13.0096
+base+theta         SF_q   linear  467.9879 +- 2.7573 2185.9773 +- 10.3711
+b+t+dh+Dh -Npar    SF_q   linear  468.4157 +- 3.3635 2214.9376 +- 12.4564
+base+theta+dh      SF_q   linear  469.7481 +- 2.7426 2198.6457 +- 10.3311
+b+t+dh+Dh -Dh      SF_q   linear  469.7481 +- 2.7426 2198.6457 +- 10.3311
+b+t+dh+Dh -dh      SF_q   linear  471.3548 +- 3.4085 2227.6690 +- 12.8311
+base+theta+dh+Dh   SF_q   linear  471.4956 +- 3.4997 2229.0615 +- 13.1698
+b+t+dh+Dh -Nperp   SF_q   linear  471.5847 +- 3.5050 2229.8973 +- 13.2192
+b+t+dh+Dh -volFrac SF_q   linear  474.6658 +- 3.4932 2260.2364 +- 13.6820
+base+r             SF_q   linear  544.2584 +- 4.3851 2428.8498 +- 14.9747
+all                SF_q   linear  608.6370 +- 3.0502 2486.0099 +- 10.5045
+b+t+dh+Dh -logReD  SF_q   mlp    1263.5397 +- 78.4156 3621.0775 +- 210.1422
+b+t+dh+Dh -dh      SF_q   mlp    1831.1703 +- 87.8444 5431.6982 +- 380.6769
+b+t+dh+Dh -Nperp   SF_q   mlp    1832.3792 +- 176.2597 5592.5023 +- 918.4404
+base+theta         SF_q   mlp    1865.7619 +- 104.6989 5602.9559 +- 453.1256
+b+t+dh+Dh -sinT    SF_q   mlp    1906.5434 +- 129.8028 5898.5575 +- 371.2964
+base+r             SF_q   mlp    1957.9625 +- 69.5705 5681.9644 +- 196.8998
+b+t+dh+Dh -Npar    SF_q   mlp    1975.6745 +- 31.2013 5875.5919 +- 313.2981
+b+t+dh+Dh -cosT    SF_q   mlp    2038.6306 +- 19.2991 5996.2001 +- 81.8249
+b+t+dh+Dh -Mbar    SF_q   mlp    2096.1070 +- 461.5560 5721.8581 +- 760.5784
+base+theta+dh+Dh   SF_q   mlp    2129.4696 +- 416.8875 6549.5622 +- 1770.9747
+base+theta+dh      SF_q   mlp    2130.1207 +- 155.3384 6326.4020 +- 505.2555
+b+t+dh+Dh -Dh      SF_q   mlp    2130.1207 +- 155.3384 6326.4020 +- 505.2555
+b+t+dh+Dh -volFrac SF_q   mlp    2225.1950 +- 146.3752 6748.9487 +- 504.1105
+base               SF_q   mlp    2279.0456 +- 314.2394 7867.8543 +- 1404.8020
+base+dh            SF_q   mlp    3053.0543 +- 866.2879 10836.7015 +- 4062.7286
+all                SF_q   mlp    3137.3697 +- 467.2653 9377.3926 +- 1942.3814
+wrote /home/tdurrant/Research/cs230/aerof/ablation_multi_run.csv

@@ -1,0 +1,287 @@
+// AERO-F input: quasi-2D embedded cylinder, steady (runs/<case>/FluidFile)
+// Pre-refines the coarse mesh (AMR PreRefine), then solves steady from freestream with
+// Hessian AMR. The converged solution is the data sample. (The unsteady production
+// stage was removed 2026-10-02; see git history before that for its settings.)
+// newRun.py replaces this header and the `key = value;` lines it owns (see
+// newRun.substitutions): Input paths, AMR capsule Point_x/y/z, Inlet {Mach, Density,
+// Pressure}, Time/MaxIts. Edit everything else by hand here.
+// Case M1.9_Re58_x0.88_y0.49: Mach = 1.9, Re_D = 58   (written by newRun.py)
+//   cylinder center (-2.6, 0.408333) = grid point (-3.33333, 0)
+//   + (0.88, 0.49) h;  zOverhang = 0.25 dz
+//   D = 1 m, T = 288.15 K, a = 340.322 m/s, U = 646.612 m/s
+//   mu = 1.78848e-05 Pa s, rho = 1.60424e-06 kg/m^3, p = 0.132715 Pa
+//   D/U = 0.00154652 s, steady, MaxIts = 1000
+
+under Problem {
+    Type      = Steady;
+    Mode      = Dimensional;
+    Prec      = NonPreconditioned;
+    Framework = Embedded;
+}
+
+// Paths are written by newRun.py relative to the case directory: the shared coarse mesh
+// and the case's own cylinder surface.
+under Input {
+    GeometryPrefix  = "../../data/OUTPUT";
+    EmbeddedSurface = "embeddedSurface.top";
+}
+
+// Refinement regions are in mesh coordinates (D = 1; cylinder FaceID = 7). newRun.py
+// writes every capsule's Point_x/Point_y from the case's cylinder center (the values
+// below are for xc, yc = -3.3, 0.1) and Point_z as the mid-plane dz/2 of the fluid layer.
+//
+// Criteria [0], [1] and [3] pre-refine at t = 0 (geometry only); the Hessian criterion
+// [2] then adapts to the flow every Frequency iterations of the steady solve. Target
+// edge lengths step down gently: coarse 0.83 -> outer capsule [3] 0.2 -> inner capsule
+// [0] 0.1 -> Hessian [2] 0.025 / cylinder [1] 0.02.
+under AdaptiveMeshRefinement {
+
+    // Baseline bow shock and wake region: capsule of radius 2 D whose axis runs along +x
+    // from 1.5 D upstream of the cylinder center to 10 D downstream (rounded ends reach
+    // ~3.5 D upstream; bow shock standoff at M1.5 is ~1.5 D ahead of the surface).
+    // Keeps the near wake resolved.
+    under SelectionCriterion[0] {
+        Type = APriori;
+        PreRefine = On;
+        MinimumEdgeLength = 0.1;
+        NumLevels = 10;
+        under RefinementDomain {
+            Type = Capsule;
+            under Capsule {
+                Point_x = -4.1;
+                Point_y = 0.4083333333;
+                Point_z = 0.05;
+                Normal_x = 1;
+                Normal_y = 0;
+                Normal_z = 0;
+                Radius = 2.0;
+                Length = 11.5;
+            }
+        }
+    }
+
+    // Cells cut by the cylinder surface
+    under SelectionCriterion[1] {
+        Type = Intersection;
+        under PreferredDirection {
+            Type = WallDistanceGradient;
+        }
+        under IntersectionCriterion {
+            FaceID = 7;
+            Delta = 1e-3;
+        }
+        PreRefine = On;
+        MinimumEdgeLength = 0.02;
+        NumLevels = 15;
+    }
+
+    // Flow-adaptive: Hessian of the velocity (lab FSI_NAS CapsuleSteady settings), to
+    // sharpen the bow shock and shear layers below the baseline. Capsule of radius 4 D
+    // from 3 D upstream of the cylinder center to 12 D downstream, which contains the
+    // M1.5 bow shock (asymptotically the 42 deg Mach angle) out to |y - yc| = 4 D.
+    // Thresholds are a starting point: tune on the first runs.
+    under SelectionCriterion[2] {
+        Type = Hessian;
+        under HessianCriterion {
+            SensorType = Velocity;
+            Threshold = 1.0e-2;
+            HessianConstruction = LeastSquares;
+            CoarseningThreshold = 2.0e-3;
+        }
+        under RefinementDomain {
+            Type = Capsule;
+            under Capsule {
+                Point_x = -5.6;
+                Point_y = 0.4083333333;
+                Point_z = 0.05;
+                Normal_x = 1;
+                Normal_y = 0;
+                Normal_z = 0;
+                Radius = 4.0;
+                Length = 15.0;
+            }
+        }
+        PreRefine = Off;     // needs a flow field
+        MinimumEdgeLength = 0.025;
+        NumLevels = 5;
+    }
+
+    // Outer transition capsule: same region as the Hessian criterion [2], at twice the
+    // inner capsule's edge length, so the size steps down gently into the inner capsule
+    // and the Hessian criterion never refines the coarse tets directly (the worst-quality
+    // tets were there when the Hessian region extended past the inner capsule).
+    under SelectionCriterion[3] {
+        Type = APriori;
+        PreRefine = On;
+        MinimumEdgeLength = 0.2;
+        NumLevels = 10;
+        under RefinementDomain {
+            Type = Capsule;
+            under Capsule {
+                Point_x = -5.6;
+                Point_y = 0.4083333333;
+                Point_z = 0.05;
+                Normal_x = 1;
+                Normal_y = 0;
+                Normal_z = 0;
+                Radius = 4.0;
+                Length = 15.0;
+            }
+        }
+    }
+
+    InitializeRefinementTag = On;
+    Frequency = 20;            // adapt every 20 iterations of the steady solve
+    BalancingFrequency = 20;
+    UseUnsteadyStrategy = 1;   // steady: adapt on Frequency, not on a residual drop
+    Mode = NonDimensional;
+    BalancingCriterion = ElemMaxMinRatio;
+    BalancingThreshold = 1.05;
+    BalancingWeight = 2;
+    ImbalanceTolerance = 1.05;
+    MaximumRefinementIterations = 1000;
+    MaximumCoarseningIterations = 1000;
+    ItrFactor = 1000.0;
+    UniformityThreshold = 0.05;
+    UniformityThresholdType = MinMax;
+    MaximumNumberOfElements = 1000000;
+    // Refine3D = 0 refines only edges lying in the x-y plane, for quasi-2D one-layer
+    // meshes. With Arbitrary bisection the manual warns the mesh quality "tends to be
+    // poor, particularly if the initial mesh is coarse": refined faces stay attached to
+    // coarse vertices across the layer (~0.75 m x-y skew, ~10% bottom/top pressure
+    // mismatch in M1.5_Re100). Refine3D = 1 (default) also splits edges across the layer.
+    Refine3D = 1;
+    // Arbitrary = longest-edge bisection: with the thin layer (dz = 0.1 << h) the in-plane
+    // edges are split first and the layer only once in-plane edges reach ~dz (~5 layers
+    // at the 0.02 m cylinder spacing). Isotropic splits every edge at every level, so it
+    // keeps each coarse tet's h/dz aspect ratio and needs h/h_min ~ 33 layers near the
+    // cylinder whatever dz is (hit the 1M element cap); it suits cube-like starting tets.
+    BisectionStrategy = Arbitrary;
+    // Manual: with Arbitrary bisection set MaximumAspectRatio and/or MinimumElementVolume
+    // to prevent element flattening. Aspect ratio = circumradius/inradius (3 for a regular
+    // tet, MeshAdapterCore.C:325); a bisection is refused if a child would exceed it, and
+    // with Arbitrary the check is on by default at 1000 (IoDataCore.C:5686). Our starting
+    // tets (0.83 x 0.83 x 0.1 hex split) give children of ~150 on their first, longest-edge
+    // split, so a tight limit blocks refinement entirely (30 refined nothing at t = 0).
+    // Kept at the default; the resulting slivers are accepted pending a mesh-sensitivity check.
+    // MaximumAspectRatio = 1000;
+    ConsistentNumbering = On;
+    RecomputeWallDistance = 0;
+}
+
+under Output {
+    under Postpro {
+        PostprocessSides = 1;
+        Prefix = "./results/";
+        Mach = "Mach";
+        Pressure = "Pressure";
+        Density = "Density";
+        Velocity = "Velocity";
+        Temperature = "Temperature";
+        LiftandDrag = "../postpro/LiftandDrag";
+        EmbeddedSurfaceForce = "../postpro/EmbeddedSurfaceForce";
+        Frequency = 0;     // fields only at the last iteration (LiftandDrag every iteration)
+    }
+    under Restart {
+        Frequency = 100;
+        Prefix = "./references/";
+        Solution = "Solution";
+        RestartData = "RestartData";
+        MeshData = "MeshData";
+        EmbeddedPosition = "EmbeddedPosition";
+    }
+}
+
+// Laminar Navier-Stokes (no TurbulenceClosure)
+under Equations {
+    Type = NavierStokes;
+    under FluidModel[0] {
+        Fluid = PerfectGas;
+        under GasModel {
+            SpecificHeatRatio = 1.4;
+        }
+    }
+    under ViscosityModel {
+        Type = Sutherland;
+    }
+}
+
+under Surfaces {
+    under SurfaceData[7] {
+        ComputeForces = True;
+        SeparateForces = False;
+    }
+}
+
+// Flow in +x
+under BoundaryConditions {
+    under Inlet {
+        Type     = External;
+        Mach     = 1.9;
+        Density  = 1.6042395920e-06;
+        Pressure = 1.3271531640e-01;
+        Alpha    = 0.0;
+        Beta     = 0.0;
+    }
+    under Wall {
+        Type        = Adiabatic;
+        // Wall function or full integration to the wall
+        Integration = Full;
+    }
+}
+
+under Space {
+    under NavierStokes {
+        Flux              = HLLC;
+        Reconstruction    = Linear;
+        AdvectiveOperator = FiniteVolume;
+        Limiter           = Venkatakrishnan;
+        Gradient          = LeastSquares;
+        Dissipation       = SecondOrder;
+        Beta              = 0.5;
+        Gamma             = 1.0;
+    }
+    under Boundaries {
+        Type = StegerWarming;
+    }
+}
+
+// Steady: local time stepping with a CFL ramp (lab CapsuleSteady settings).
+under Time {
+    Type = Implicit;
+    MaxIts = 1000;
+    Eps = 1e-5;          // relative residual; MaxIts is set by newRun.steadyMaxIts
+    under CflLaw {
+        Strategy = Hybrid;
+        Cfl0 = 1;
+        CflMax = 100;
+    }
+    under Implicit {
+        Type = BackwardEuler;
+        MatrixVectorProduct = FiniteDifference;
+        under Newton {
+            MaxIts = 1;
+            Eps = 0.001;
+            FailSafe = On;
+            under LinearSolver {
+                under NavierStokes {
+                    Type = Gmres;
+                    MaxIts = 100;
+                    KrylovVectors = 100;
+                    Eps = 0.01;
+                    under Preconditioner {
+                        Type = Ras;
+                        Fill = 0;
+                    }
+                }
+            }
+        }
+    }
+}
+
+under EmbeddedFramework {
+    Intersector = PhysBAM;
+    RiemannNormal = Structure;
+    RotatedRiemann = On;
+    FillScope = BoundingBox;
+}

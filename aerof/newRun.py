@@ -38,6 +38,8 @@ import re
 import shutil
 from collections import namedtuple
 
+import numpy as np
+
 import cylMeshGen as mesh
 
 # ============= User-defined parameters ==============================================
@@ -65,6 +67,15 @@ cases += [Case(1.5, 100, ox, oy) for ox, oy in offsets
 # The original position (0.04, 0.12), and the span test there: Fx should scale with the
 # tube length (1 + 2 zOverhang) dz, i.e. by 1.2 / 1.5 from zOverhang 0.25 to 0.1.
 cases += [Case(1.5, 100, 0.04, 0.12), Case(1.5, 100, 0.04, 0.12, zOverhang=0.1)]
+# Continuous sweep (2026-10-03): a Latin hypercube in (Mach, log Re, ox, oy), nSweep
+# cases. D/h and the binning offset are varied later, in post-processing (binMulti.py
+# bins each solution onto many coarse grids), so the cylinder position here only
+# randomizes how the AMR mesh lines up with the body.
+nSweep = 256
+sweepSeed = 0
+sweepMach = (1.2, 2.5)
+sweepRe = (20, 200)        # sampled uniformly in log Re
+sweepMinNodeDistance = 0.05  # redraw (ox, oy) if a coarse node is closer (in h)
 overwrite = True  # True: rewrite FluidFile and scripts of existing run directories
                    # (outputs in results/ references/ postpro/ are left alone). An
                    # unchanged FluidFile is not rewritten, so DONE stays newer than it.
@@ -88,6 +99,31 @@ C_suth = 1.458e-6       # Sutherland constant [kg/(m s K^0.5)] (AERO-F default)
 S_suth = 110.6          # Sutherland reference temperature [K] (AERO-F default, IoDataCore.C)
 
 steadyMaxIts = 1000     # pseudo-time iterations (stops earlier at Time/Eps in template)
+
+
+# ============= Continuous sweep =====================================================
+def sweepCases():
+    """nSweep Cases from a Latin hypercube: each of the 4 coordinates is split into
+    nSweep equal strata, and each stratum is used exactly once (random pairing).
+    Rounded so the case name reproduces the values exactly."""
+    rng = np.random.default_rng(sweepSeed)
+    u = (np.array([rng.permutation(nSweep) for _ in range(4)]).T
+         + rng.random((nSweep, 4))) / nSweep                     # (nSweep, 4) in [0, 1)
+    _, _, fluid = mesh.fluidNodes()
+    out = []
+    for uM, uRe, ux, uy in u:
+        mach = round(sweepMach[0] + uM * (sweepMach[1] - sweepMach[0]), 3)
+        Re = round(float(np.exp(np.log(sweepRe[0]) + uRe * np.log(sweepRe[1] / sweepRe[0]))), 1)
+        ox, oy = round(ux, 2) % 1.0, round(0.5 * uy, 2)
+        while True:   # keep coarse nodes off the surface (the intersector dislikes it)
+            c = Case(mach, Re, ox, oy)
+            ring = mesh.cylinderSurface(*cylinderCenter(c), c.zOverhang)[0]
+            if mesh.minNodeToSurfaceDistance(fluid, ring, *cylinderCenter(c)) / mesh.h \
+                    >= sweepMinNodeDistance:
+                break
+            ox, oy = round(rng.random(), 2) % 1.0, round(0.5 * rng.random(), 2)
+        out.append(c)
+    return out
 
 
 # ============= Freestream state =====================================================
@@ -221,5 +257,5 @@ def setupRun(c):
 
 # ============= Main =================================================================
 if __name__ == '__main__':
-    for c in cases:
+    for c in cases + sweepCases():
         setupRun(c)

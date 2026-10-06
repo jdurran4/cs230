@@ -1,0 +1,5 @@
+2026-10-04 19:49:34 sweep finished: 246 done, 10 FAIL
+FAIL bin M1.925_Re26.5_x0.98_y0.48
+FAIL bin M2.229_Re100.6_x0.76_y0.39
+2026-10-04 20:03:51 binning finished
+319 runs, 31878 rows -> /home/tdurrant/Research/cs230/aerof/dataset_multi.npz
