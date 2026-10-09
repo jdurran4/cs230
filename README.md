@@ -10,40 +10,12 @@ high-fidelity CFD simulations. The goal of this project is to investigate whethe
 the effect of a geometrically resolved body can instead be represented by a
 learned equivalent source term applied to a coarse CFD mesh.
 
-The initial test problem is unsteady quasi-2D compressible flow over a stationary
-cylinder using AERO-F.
-
-A coarse background mesh defines the control volumes that will eventually be used
-for unresolved simulations. The cylinder is resolved using embedded-boundary
-adaptive mesh refinement (AMR). Resolved flow quantities and surface forces are
-then filtered onto the original coarse control volumes to construct a supervised
-learning dataset.
-
-For each coarse cell intersecting the cylinder, the initial model will use inputs
-
-- local Mach number
-- local Reynolds number
-- solid volume fraction
-- relative flow/geometry angle
-
-and predict the equivalent momentum source terms
-
-- x-momentum source
-- y-momentum source
-
-The source terms are obtained by integrating the pressure and viscous traction
-over the portion of the cylinder contained within each coarse control volume.
-
-## Workflow
-
-1. Generate a parameterized quasi-2D embedded-cylinder CFD problem.
-2. Pre-refine the cylinder using AMR and run an unsteady resolved simulation.
-3. Discard the initial transient and collect flow snapshots.
-4. Average resolved flow quantities over the original coarse control volumes.
-5. Integrate cylinder surface forces within each coarse control volume.
-6. Construct the machine-learning dataset.
-7. Train and evaluate regression / neural-network models.
-8. Test generalization across Mach number, Reynolds number, and cylinder position.
+The test problem is quasi-2D compressible flow over a stationary cylinder using AERO-F.
+A coarse background mesh defines the control volumes (dual cells of its nodes) used by
+unresolved simulations. The cylinder is resolved with embedded-boundary adaptive mesh
+refinement (AMR). The resolved surface force is integrated over the part of the cylinder
+inside each coarse control volume, and the resolved flow is averaged over the same
+volumes, giving a supervised dataset: per coarse column, flow state + geometry → source.
 
 ## Long-Term Goal
 
@@ -52,8 +24,52 @@ learning equivalent conservation-law source terms for unresolved immersed bodies
 
 The eventual application is accelerating fluid-structure interaction simulations
 of supersonic parachutes by replacing geometrically resolved suspension lines
-with learned source terms on the coarse CFD mesh.
+with learned source terms on the coarse CFD mesh. There, robustness matters more than
+accuracy: the source must stay physical under chaotic, widely varying states.
 
+## Status
+
+**steady-v0** (git tag in this repo and in AERO-F `source-terms`) is the first complete
+pass: steady resolved sweeps (M 1.2–2.5, Re_D 20–200, random cylinder offsets, multiple
+coarse grids D/h 0.25–2.4 in post-processing), a flow-frame MLP, and AERO-F source terms
+(oracle from file, and the NN online). Lessons that drive the next version:
+
+- An oracle (true source read from a file) on the coarse mesh reproduces the far-field
+  wake well; near-field waves are weaker than resolved.
+- Training inputs must come from the state the coarse solver actually sees: a net
+  trained on coarse oracle states was ~9× more accurate on them than one trained on
+  fine-solution averages.
+- Online, from a freestream start, the coarse-state net predicts thrust, no bow shock
+  forms, and the run converges to a wrong state (Cd 0.11 vs 1.76). Restarted from the
+  oracle solution it holds Cd 1.63. Training data must cover the path, not only the answer.
+- The flow-aligned frame (parallel/perpendicular to the local velocity) is ill-defined
+  where the local flow stagnates (the column holding most of the body), and the
+  prediction there flips sign.
+- In coarse body columns the node velocity is largely an effect of the source itself, so
+  a local drag law is structurally wrong there (the true force pushes along the local
+  coarse flow in 66% of rows).
+
+## Next design
+
+- Inputs and outputs in the solver's Cartesian x-y frame: local Mach vector, Re_c =
+  ρcD/μ (instead of Re_D, which is singular at zero velocity), volume fraction, area
+  normal N, centroid offset r/h, D/h; outputs Sx, Sy (minus the pressure baseline p̄DN,
+  normalized by (p̄+q̄)D). Rotation invariance, when needed, by data augmentation.
+- Nodal state gradients as inputs: neighbor information for free, since AERO-F already
+  computes them for second-order fluxes (first-order runs simply omit them).
+- Static closure (no history inputs). Later: velocity relative to a moving cable and the
+  matching energy source.
+- Unsteady resolved runs with snapshots for training coverage, after a review of solver
+  settings and physics.
+
+## Layout
+
+- `aerof/`: case generation, binning, training, and online-check scripts (steady-v0
+  code; to be restructured).
+- Data lives outside the repo in `~/Research/cs230-data/`. `steady-v0/` holds everything
+  from the steady pass (runs, coarse/oracle/online runs, datasets, NN weights, meshes)
+  in its old relative layout, plus a copy of `tools.sh` so old run directories still
+  run. Old scripts expect it at `aerof/`: `git checkout steady-v0` and symlink if needed.
 
 ## How AERO-F computes the force on an embedded surface (default CLOSEST_ELEMENT algorithm):
 
@@ -70,6 +86,6 @@ with learned source terms on the coarse CFD mesh.
 7. Split each point's force among the triangle's 3 nodes. Each node's fraction is the point's barycentric coordinate for that node, i.e. the linear "tent" shape function. The result is Fs[a] = ∫ φ_a · t dA. The fractions sum to 1, so no force is lost.
 8. Total per rank: Steps 1–7 run for each subdomain, starting from zero at every call. The subdomain results are added into this rank's Fs, which holds only its own share.
 9. Total force: getForcesAndMoments adds Fs[a] over all nodes, and globalSum adds up the ranks. Multiplying by ρU²L² converts to newtons, and rotating by α, β gives LiftandDrag. All of it, including the shear, goes into the "inviscid" bucket, which is why ViscousLiftandDrag is ≈ 0 for embedded surfaces.
-10. Your output: EmbeddedSurfaceForce copies Fs, reduces it to rank 0 (the per-node equivalent of step 9), scales it to newtons, and writes one "Fx Fy Fz" line per structure node. The sum of the lines equals LiftandDrag, which the Phase 3 check confirmed.
+10. Your output: EmbeddedSurfaceForce copies Fs, reduces it to rank 0 (the per-node equivalent of step 9), scales it to newtons, and writes one "Fx Fy Fz" line per structure node. The sum of the lines equals LiftandDrag, which the Phase 3 check confirmed.
 
 For the source term: cell K's force on the fluid is −Σ_{a∈K} Fs[a]. Add back p∞ · (1/3) Σ A n_out for each node to get absolute pressure, and divide by span dz for a per-unit-span value.

@@ -1,43 +1,13 @@
-# git ignore
-domain.top
-embeddedSurface.top
-mesh.png
+# Data lives outside the repo, in ~/Research/cs230-data/ (see README).
 __pycache__/
 .venv/
+.vscode/
 
-# AERO-F preprocessing and run outputs
-aerof/data/
-*.dec.*
-aerof/runs/**/results/
-aerof/runs/**/references/
-aerof/runs/**/postpro/
+# AERO-F outputs, in case a run directory ends up inside the repo
+results/
+references/
+postpro/
 log.out
 log.postpro
 *.exo
-aerof/runs/**/DONE
-aerof/runs/**/*.npz
-aerof/runs/**/*.png
-aerof/runSweep*.log
-aerof/binlogs/
-aerof/dataset_multi.npz
-.vscode/
-aerof/oracle/**/results/
-aerof/oracle/**/references/
-aerof/oracle/**/postpro/
-aerof/oracle/**/DONE
-aerof/online/**/results/
-aerof/online/**/references/
-aerof/online/**/postpro/
-aerof/online/**/DONE
-aerof/dh025/**/results/
-aerof/dh025/**/references/
-aerof/dh025/**/postpro/
-aerof/dh025/**/DONE
-aerof/dh025/data/
-aerof/dh025/sources/domain.top*
-aerof/nn/model.pt
-aerof/nn/aerof.oracle.opt
-aerof/coarse/
-aerof/**/postpro.log
-aerof/**/preprocess.log
-aerof/nn/**/model.pt
+*.dec.*
