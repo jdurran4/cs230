@@ -45,8 +45,8 @@ under Output {
 under Equations {
     Type = NavierStokes;
     // Uncomment once the keywords exist in AERO-F (source-terms branch):
-    // NeuralSourceWeightsFile  = "../../nn/nnWeights.txt";
-    // NeuralSourceGeometryFile = "nnGeometry.txt";
+    NeuralSourceWeightsFile  = "../../nn/nnWeights.txt";
+    NeuralSourceGeometryFile = "nnGeometry.txt";
     under FluidModel[0] {
         Fluid = PerfectGas;
         under GasModel {
