@@ -20,6 +20,8 @@ Usage (from the repo root):
   python -m learn.train export SET NAME          -> DATA/nn/NAME/
 
 ---- nnWeights.txt (plain numbers, whitespace separated, read in this order) ----------
+    tag                       input set name (e.g. xy): AERO-F checks it, because
+                              nets with different inputs can have the same sizes
     L                         number of linear layers (3)
     n0 n1 ... nL              layer widths (e.g. 9 32 32 2)
     xMean[n0]  xStd[n0]       input standardization:  z = (x - xMean) / xStd
@@ -28,7 +30,8 @@ Usage (from the repo root):
         b[n_l]
     yMean[nL]  yStd[nL]       output de-standardization:  y = out * yStd + yMean
   Forward pass:  a = z;  a = tanh(W1 a + b1);  a = tanh(W2 a + b2);  out = W3 a + b3
-  The input order and the output frame are listed in the header of nnTest.txt.
+  The input order and the output frame are listed in features.py and in the header of
+  nnTest.txt.
 """
 import os
 import sys
@@ -143,6 +146,7 @@ def cv(setNames):
 
 # ============= Export ===============================================================
 def export(setName, outName):
+    assert ' ' not in setName, 'the tag is read as one whitespace-separated token'
     d, F = load()
     names, frame = ft.inputSets[setName]
     X = np.column_stack([F[f] for f in names])
@@ -153,6 +157,7 @@ def export(setName, outName):
     linears = [m for m in model if isinstance(m, torch.nn.Linear)]
     line = lambda v: ' '.join(f'{a:.17g}' for a in v) + '\n'
     with open(os.path.join(outDir, 'nnWeights.txt'), 'w') as f:
+        f.write(f'{setName}\n')
         f.write(f'{len(linears)}\n')
         f.write(' '.join(str(n) for n in [len(names)] + hidden + [2]) + '\n')
         f.write(line(xMean) + line(xStd))

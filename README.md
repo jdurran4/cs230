@@ -72,6 +72,7 @@ Run everything from the repo root as modules (`python -m learn.train cv`).
 - `learn/features.py`: input sets (steady-v0 flow frame, x-y, gradients) and targets.
 - `learn/train.py`: cross-validated comparison of input sets, and the weights export for
   AERO-F.
+- `online/check.py`: Python reference of AERO-F's neural source (test values for the C++).
 - Data lives outside the repo in `~/Research/cs230-data/` (override with `CS230_DATA`):
   `steady-v0/` holds everything from the steady pass in its old layout (runs, coarse
   oracle/online runs, meshes, old datasets and weights, plus a copy of `tools.sh` so old
