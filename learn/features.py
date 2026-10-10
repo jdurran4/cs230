@@ -34,6 +34,16 @@ inputSets['xy+grad'] = (inputSets['xy'][0] + gradNames, 'xy')
 inputSets['xy+absM+grad'] = (inputSets['xy+absM'][0] + gradNames, 'xy')
 
 
+# inputs that change sign when the flow is mirrored in y (y -> -y); the target's y
+# component flips too. Gradients: d/dy flips, and v flips, so gy_v is unchanged.
+mirrorFlips = {'My', 'Ny', 'ryh', 'gy_rho', 'gy_u', 'gx_v', 'gy_p'}
+
+
+def mirrorSigns(names):
+    """+-1 per input: multiply a row by it to get the mirror-image row (x-y sets only)."""
+    return np.array([-1.0 if n in mirrorFlips else 1.0 for n in names])
+
+
 def candidates(d):
     """Every candidate input, as a dict of arrays (one entry per row)."""
     rho, u, v, p, h, D = d['rho'], d['u'], d['v'], d['p'], d['h'], d['D']

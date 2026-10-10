@@ -16,8 +16,10 @@ Export: train on all rows, write nnWeights.txt (the file AERO-F reads; format be
 and nnTest.txt (a few input rows and outputs, to check the C++ forward pass).
 
 Usage (from the repo root):
-  python -m learn.train cv [set ...]             compare input sets (default: all)
-  python -m learn.train export SET NAME          -> DATA/nn/NAME/
+  python -m learn.train cv [--mirror] [set ...]           compare input sets (default: all)
+  python -m learn.train export [--mirror] SET NAME        -> DATA/nn/NAME/
+  --mirror: add a y-mirrored copy of every TRAINING row (x-y sets only): the problem is
+  symmetric under y -> -y, and the copy doubles the coverage of rare column geometries.
 
 ---- nnWeights.txt (plain numbers, whitespace separated, read in this order) ----------
     tag                       input set name (e.g. xy): AERO-F checks it, because
@@ -51,6 +53,7 @@ weightDecay = 1e-4         # L2 penalty on the weights
 nFolds = 5
 seeds = [0, 1, 2]
 dataFile = os.path.join(common.DATA, 'datasets', 'coarse_steady.npz')
+mirror = False             # set by --mirror
 torch.set_num_threads(4)
 
 
@@ -92,6 +95,15 @@ def fit(X, Y, seed):
     return model, (xMean, xStd, yMean, yStd)
 
 
+def augment(X, Y, names, frame):
+    """Training rows, plus their y-mirror images if --mirror."""
+    if not mirror:
+        return X, Y
+    assert frame == 'xy', 'mirroring is implemented for the x-y frame only'
+    sx, sy = ft.mirrorSigns(names), np.array([1.0, -1.0])
+    return np.vstack([X, X * sx]), np.vstack([Y, Y * sy])
+
+
 def predict(model, stats, X):
     xMean, xStd, yMean, yStd = stats
     with torch.no_grad():
@@ -113,7 +125,7 @@ def crossValidate(d, F, setName, seed):
     sq, dCd, dCl = [], [], []
     for k in range(nFolds):
         tr, te = fold != k, fold == k
-        model, stats = fit(X[tr], Y[tr], seed)
+        model, stats = fit(*augment(X[tr], Y[tr], names, frame), seed)
         teRows = {key: v[te] for key, v in d.items()}
         S = ft.toSource(predict(model, stats, X[te]), teRows, frame) / norm[te]
         sq.append((S - true[te]) ** 2)
@@ -150,7 +162,8 @@ def export(setName, outName):
     d, F = load()
     names, frame = ft.inputSets[setName]
     X = np.column_stack([F[f] for f in names])
-    model, (xMean, xStd, yMean, yStd) = fit(X, ft.target(d, frame), seeds[0])
+    model, (xMean, xStd, yMean, yStd) = fit(*augment(X, ft.target(d, frame), names, frame),
+                                            seeds[0])
     outDir = os.path.join(common.DATA, 'nn', outName)
     os.makedirs(outDir, exist_ok=True)
 
@@ -170,7 +183,7 @@ def export(setName, outName):
     rows = X[[0, len(X) // 2, -1]]
     out = predict(model, (xMean, xStd, yMean, yStd), rows)
     with open(os.path.join(outDir, 'nnTest.txt'), 'w') as f:
-        f.write(f'# input set {setName!r}, target frame {frame!r}\n')
+        f.write(f'# input set {setName!r}, target frame {frame!r}, mirror {mirror}\n')
         f.write(f'# inputs ({" ".join(names)})  ->  outputs (Y1 Y2)\n')
         for x, y in zip(rows, out):
             f.write(' '.join(f'{a:.10g}' for a in x) + '  ->  ' +
@@ -180,7 +193,10 @@ def export(setName, outName):
 
 
 if __name__ == '__main__':
-    if sys.argv[1] == 'cv':
-        cv(sys.argv[2:] or list(ft.inputSets))
+    args = sys.argv[1:]
+    mirror = '--mirror' in args
+    args = [a for a in args if a != '--mirror']
+    if args[0] == 'cv':
+        cv(args[1:] or list(ft.inputSets))
     else:
-        export(sys.argv[2], sys.argv[3])
+        export(args[1], args[2])
