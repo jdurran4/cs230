@@ -64,12 +64,20 @@ coarse grids D/h 0.25–2.4 in post-processing), a flow-frame MLP, and AERO-F so
 
 ## Layout
 
-- `aerof/`: case generation, binning, training, and online-check scripts (steady-v0
-  code; to be restructured).
-- Data lives outside the repo in `~/Research/cs230-data/`. `steady-v0/` holds everything
-  from the steady pass (runs, coarse/oracle/online runs, datasets, NN weights, meshes)
-  in its old relative layout, plus a copy of `tools.sh` so old run directories still
-  run. Old scripts expect it at `aerof/`: `git checkout steady-v0` and symlink if needed.
+Run everything from the repo root as modules (`python -m learn.train cv`).
+
+- `common.py`: data paths, gas constants, AERO-F file readers.
+- `learn/dataset.py`: coarse-state dataset from the steady-v0 coarse oracle runs (raw SI,
+  x-y frame, nodal least-squares gradients as AERO-F computes them).
+- `learn/features.py`: input sets (steady-v0 flow frame, x-y, gradients) and targets.
+- `learn/train.py`: cross-validated comparison of input sets, and the weights export for
+  AERO-F.
+- Data lives outside the repo in `~/Research/cs230-data/` (override with `CS230_DATA`):
+  `steady-v0/` holds everything from the steady pass in its old layout (runs, coarse
+  oracle/online runs, meshes, old datasets and weights, plus a copy of `tools.sh` so old
+  run directories still run); `datasets/` and `nn/` hold what the new code writes. The
+  steady-v0 scripts (case generation, binning, oracle setup) are in the `steady-v0` tag
+  and get ported here when needed.
 
 ## How AERO-F computes the force on an embedded surface (default CLOSEST_ELEMENT algorithm):
 
