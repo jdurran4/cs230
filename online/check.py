@@ -24,6 +24,7 @@ import numpy as np
 import common
 
 inputTag = 'xy'            # the input set this reference implements
+clamp = 4.0                # standardized inputs are clipped to +-clamp (nnClamp in the C++)
 
 
 def loadNet(path):
@@ -44,7 +45,7 @@ def loadNet(path):
     yStd = np.array([nxt() for _ in range(sizes[-1])])
 
     def net(x):
-        a = (x - xMean) / xStd
+        a = np.clip((x - xMean) / xStd, -clamp, clamp)    # no extrapolation past the clamp
         for l in range(L):
             a = Ws[l] @ a + bs[l]
             if l < L - 1:
