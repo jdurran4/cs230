@@ -6,14 +6,20 @@
 #   sweep/runSweep.sh                          every case in unsteady/runs.txt
 #   sweep/runSweep.sh M1.5_Re100_x0.04_y0.12 ...   only these
 #   JOBS=2 NP=8 sweep/runSweep.sh              defaults (frg-n05 has 20 cores)
+#   MAXHOURS=4 sweep/runSweep.sh               stop any case still running after 4 h
+#                                              (logged TIMEOUT; default 0 = no limit), so a
+#                                              stalled case does not hold its cores
 # To keep it running after closing the terminal:
 #   nohup sweep/runSweep.sh > ~/Research/cs230-data/unsteady/runSweep.log 2>&1 &
 # Each case's AERO-F log is runs/<case>/log.out. To stop the sweep and its running cases,
 # kill its process group:  kill -- -$(cat ~/Research/cs230-data/unsteady/runSweep.pgid)
+# With MAXHOURS each case runs in its own process group (timeout's), so also stop those:
+#   pkill -u $USER -x timeout      (timeout passes the signal on to its case)
 cd "${CS230_DATA:-$HOME/Research/cs230-data}/unsteady"
 ps -o pgid= -p $$ | tr -d ' ' > runSweep.pgid
 NP=${NP:-8}
 JOBS=${JOBS:-2}
+export MAXHOURS=${MAXHOURS:-0}
 if [ $# -gt 0 ]; then names=("$@"); else mapfile -t names < runs.txt; fi
 cases=("${names[@]/#/runs/}")
 
@@ -24,8 +30,16 @@ runCase() {
         return
     fi
     echo "$(date '+%F %T') start $dir"
-    if "$dir"/run.sh "$np" > /dev/null 2>&1; then
+    if [ "$MAXHOURS" != 0 ]; then
+        timeout -k 120 "${MAXHOURS}h" "$dir"/run.sh "$np" > /dev/null 2>&1
+    else
+        "$dir"/run.sh "$np" > /dev/null 2>&1
+    fi
+    local status=$?
+    if [ $status -eq 0 ]; then
         echo "$(date '+%F %T') done  $dir"
+    elif [ $status -eq 124 ] || [ $status -eq 137 ]; then
+        echo "$(date '+%F %T') TIMEOUT $dir (stopped after ${MAXHOURS} h)"
     else
         echo "$(date '+%F %T') FAIL  $dir (see $dir/log.out)"
     fi

@@ -155,6 +155,15 @@ def parseCase(name):
     return newRun.Case(*(float(g) for g in m.groups()))
 
 
+def runCase(name):
+    """The Case of resolved run runs/<name>, with tEnd from its FluidFile (MaxTime), so
+    the oracle and online runs cover the same time as the resolved run."""
+    c = parseCase(name)
+    with open(os.path.join(newRun.runsDir, name, 'FluidFile')) as fh:
+        maxTime = float(re.search(r'^\s*MaxTime\s*=\s*([^;]+);', fh.read(), re.M).group(1))
+    return c._replace(tEnd=round(maxTime / newRun.freestream(c.mach, c.Re)['tRef'], 3))
+
+
 def substitutions(caseDir, c):
     fs = newRun.freestream(c.mach, c.Re)
     inlet = ('BoundaryConditions', 'Inlet')
@@ -164,8 +173,8 @@ def substitutions(caseDir, c):
         (inlet, 'Density'): f'{fs["rho"]:.10e}',
         (inlet, 'Pressure'): f'{fs["p"]:.10e}',
         (('Time',), 'TimeStep'): f'{fs["tRef"] / newRun.stepsPerDU:.10e}',
-        (('Time',), 'MaxTime'): f'{fs["tRef"] * newRun.tEnd:.10e}',
-        (('Time',), 'MaxIts'): f'{newRun.steps(newRun.tEnd) + 100}',
+        (('Time',), 'MaxTime'): f'{fs["tRef"] * c.tEnd:.10e}',
+        (('Time',), 'MaxIts'): f'{newRun.steps(c.tEnd) + 100}',
         (('Output', 'Postpro'), 'Frequency'): f'{newRun.steps(outputEvery)}',
         (('Output', 'Restart'), 'Frequency'): f'{newRun.steps(restartEvery)}',
     }
@@ -177,11 +186,11 @@ def caseInfo(name, c):
 // Oracle for runs/{name}: Mach = {c.mach:g}, Re_D = {c.Re:g}   (written by oracle.py)
 //   coarse mesh: {nLayers} layers of hz = {hz:.6g} m; source from oracleSource.txt
 //   U = {fs['U']:.6g} m/s, rho = {fs['rho']:.6g} kg/m^3, p = {fs['p']:.6g} Pa
-//   D/U = {fs['tRef']:.6g} s; dt = D/U / {newRun.stepsPerDU}, t_end = {newRun.tEnd:g} D/U, snapshots every {outputEvery:g} D/U"""
+//   D/U = {fs['tRef']:.6g} s; dt = D/U / {newRun.stepsPerDU}, t_end = {c.tEnd:g} D/U, snapshots every {outputEvery:g} D/U"""
 
 
 def setupCase(name, nodes, tets, V):
-    c = parseCase(name)
+    c = runCase(name)
     d = os.path.join(oracleDir, 'runs', name)
     os.makedirs(d, exist_ok=True)
     binCase(name, nodes, tets, V)

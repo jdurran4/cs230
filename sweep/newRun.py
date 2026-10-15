@@ -40,20 +40,24 @@ import common
 from sweep import meshGen as mesh
 
 # ============= User-defined parameters ==============================================
-Case = namedtuple('Case', 'mach Re ox oy')
+Case = namedtuple('Case', 'mach Re ox oy tEnd', defaults=(50.0,))   # tEnd in D/U
 
 # Reference case first: the steady-v0 oracle/online test case (M1.5 Re100 at (0.04, 0.12))
-cases = [Case(1.5, 100, 0.04, 0.12)]
-# Latin hypercube in (Mach, log Re, ox, oy), nSweep cases
-nSweep = 15
-sweepSeed = 0
+cases = [Case(1.5, 100, 0.04, 0.12, 50.0)]
+# Latin hypercube batches in (Mach, log Re, ox, oy) over the same box: (seed, number of
+# cases, tEnd D/U). Each batch is its own hypercube; adding a batch leaves the earlier
+# cases and their FluidFiles unchanged.
+sweepBatches = [
+    (0, 15, 50.0),    # 2026-10-13 pilot: the startup wave and wake reach the outlet (~47 D)
+    (1, 100, 25.0),   # 2026-10-15: more startup transients; for M1.5, Cd(25) = Cd(50) + 0.2%
+]
+runBatch = 1          # runs.txt lists only this batch (index into sweepBatches)
 sweepMach = (1.2, 2.5)
 sweepRe = (20, 200)          # sampled uniformly in log Re
 sweepMinNodeDistance = 0.05  # redraw (ox, oy) if a coarse node is closer (in h)
 
 # Time integration, in units of D/U (U = freestream speed of the case)
-stepsPerDU = 20         # TimeStep = (D/U) / stepsPerDU
-tEnd = 50.0             # MaxTime: the startup wave and wake reach the outlet (~47 D)
+stepsPerDU = 20         # TimeStep = (D/U) / stepsPerDU; MaxTime = Case.tEnd
 outputEvery = 0.25      # field + EmbeddedSurfaceForce snapshots (only these exist later)
 amrEvery = 1.0          # Hessian AMR adaptation
 restartEvery = 10.0     # restart files
@@ -77,7 +81,7 @@ T_inf = 288.15          # freestream temperature [K]
 
 
 # ============= Continuous sweep =====================================================
-def sweepCases():
+def sweepCases(sweepSeed, nSweep, tEnd):
     """nSweep Cases from a Latin hypercube: each of the 4 coordinates is split into
     nSweep equal strata, and each stratum is used exactly once (random pairing).
     Rounded so the case name reproduces the values exactly."""
@@ -91,7 +95,7 @@ def sweepCases():
         Re = round(float(np.exp(np.log(sweepRe[0]) + uRe * np.log(sweepRe[1] / sweepRe[0]))), 1)
         ox, oy = round(ux, 2) % 1.0, round(0.5 * uy, 2)
         while True:   # keep coarse nodes off the surface (the intersector dislikes it)
-            c = Case(mach, Re, ox, oy)
+            c = Case(mach, Re, ox, oy, tEnd)
             ring = mesh.cylinderSurface(*cylinderCenter(c))[0]
             if mesh.minNodeToSurfaceDistance(fluid, ring, *cylinderCenter(c)) / mesh.h \
                     >= sweepMinNodeDistance:
@@ -143,8 +147,8 @@ def substitutions(caseDir, c):
         (inlet, 'Density'): f'{fs["rho"]:.10e}',
         (inlet, 'Pressure'): f'{fs["p"]:.10e}',
         (('Time',), 'TimeStep'): f'{fs["tRef"] / stepsPerDU:.10e}',
-        (('Time',), 'MaxTime'): f'{fs["tRef"] * tEnd:.10e}',
-        (('Time',), 'MaxIts'): f'{steps(tEnd) + 100}',   # margin: the run stops at MaxTime
+        (('Time',), 'MaxTime'): f'{fs["tRef"] * c.tEnd:.10e}',
+        (('Time',), 'MaxIts'): f'{steps(c.tEnd) + 100}',   # margin: the run stops at MaxTime
         (amr, 'Frequency'): f'{steps(amrEvery)}',
         (amr, 'BalancingFrequency'): f'{steps(amrEvery)}',
         (('Output', 'Postpro'), 'Frequency'): f'{steps(outputEvery)}',
@@ -169,7 +173,7 @@ def caseInfo(c):
 //   + ({c.ox:g}, {c.oy:g}) h
 //   D = {mesh.D:g} m, T = {T_inf:g} K, a = {fs['a']:.6g} m/s, U = {fs['U']:.6g} m/s
 //   mu = {fs['mu']:.6g} Pa s, rho = {fs['rho']:.6g} kg/m^3, p = {fs['p']:.6g} Pa
-//   D/U = {fs['tRef']:.6g} s; dt = D/U / {stepsPerDU}, t_end = {tEnd:g} D/U ({steps(tEnd)} steps),
+//   D/U = {fs['tRef']:.6g} s; dt = D/U / {stepsPerDU}, t_end = {c.tEnd:g} D/U ({steps(c.tEnd)} steps),
 //   snapshots every {outputEvery:g} D/U, AMR every {amrEvery:g} D/U"""
 
 
@@ -240,16 +244,17 @@ def setupRun(c):
           f'U = {fs["U"]:.4g} m/s, dt = {fs["tRef"] / stepsPerDU:.4g} s')
 
 
-def runOrder(allCases):
-    """Run order for runSweep.sh: the listed cases first, then greedily the sweep case
-    farthest (in Mach and log Re, each scaled to [0, 1]) from those already chosen, so
-    any prefix of the sweep spans the flow range."""
+def runOrder(new, done):
+    """Run order of the cases `new` for runSweep.sh: greedily the case farthest (in Mach
+    and log Re, each scaled to [0, 1]) from those already chosen, starting from `done`
+    (cases run before), so any prefix of the batch fills the gaps in the flow range."""
     def point(c):
         return np.array([(c.mach - sweepMach[0]) / (sweepMach[1] - sweepMach[0]),
                          np.log(c.Re / sweepRe[0]) / np.log(sweepRe[1] / sweepRe[0])])
-    order, rest = list(cases), [c for c in allCases if c not in cases]
+    chosen, order, rest = list(done), [], list(new)
     while rest:
-        far = max(rest, key=lambda c: min(np.linalg.norm(point(c) - point(o)) for o in order))
+        far = max(rest, key=lambda c: min(np.linalg.norm(point(c) - point(o)) for o in chosen))
+        chosen.append(far)
         order.append(far)
         rest.remove(far)
     return order
@@ -260,9 +265,17 @@ if __name__ == '__main__':
     os.makedirs(runsDir, exist_ok=True)
     # run scripts find tools.sh by walking up from the case directory
     shutil.copy2(os.path.join(sweepDir, 'tools.sh'), common.UNSTEADY)
-    allCases = cases + sweepCases()
+    batches = [sweepCases(*b) for b in sweepBatches]
+    allCases = cases + [c for b in batches for c in b]
+    names = [caseName(c) for c in allCases]
+    dup = sorted({n for n in names if names.count(n) > 1})
+    assert not dup, f'case names repeated across batches: {dup}'
     for c in allCases:
         setupRun(c)
+    earlier = cases + [c for b in batches[:runBatch] for c in b]
+    listed = runOrder(batches[runBatch], earlier)
+    if runBatch == 0:
+        listed = cases + listed
     with open(os.path.join(common.UNSTEADY, 'runs.txt'), 'w') as fh:
-        fh.write(''.join(caseName(c) + '\n' for c in runOrder(allCases)))
-    print(f'Wrote runs.txt (run order for sweep/runSweep.sh)')
+        fh.write(''.join(caseName(c) + '\n' for c in listed))
+    print(f'Wrote runs.txt: batch {runBatch}, {len(listed)} cases (run order for sweep/runSweep.sh)')

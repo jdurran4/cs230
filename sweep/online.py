@@ -38,7 +38,7 @@ def setup(name, net, tag):
     for f in oracle.caseScripts:
         shutil.copy2(os.path.join(oracle.sweepDir, 'runTemplate', f), d)
 
-    c = oracle.parseCase(name)
+    c = oracle.runCase(name)
     with open(oracle.templateFile) as fh:
         text = newRun.fillTemplate(fh.read(), oracle.substitutions(d, c),
                                    oracle.caseInfo(name, c))
