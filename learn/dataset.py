@@ -22,7 +22,12 @@ Per row:
                                       over the edge neighbors (Gradient = LeastSquares)
   Sx, Sy                              true force on the fluid per unit span [N/m]
 
-Usage (from the repo root):  python -m learn.dataset   -> DATA/datasets/coarse_steady.npz
+Usage (from the repo root):
+  python -m learn.dataset            -> DATA/datasets/coarse_steady.npz
+  python -m learn.dataset unsteady   -> DATA/datasets/coarse_unsteady.npz (buildOracle:
+                                        unsteady oracle snapshots, interior 3D cells)
+  python -m learn.dataset steady3d   -> DATA/datasets/coarse_steady3d.npz (buildOracle:
+                                        steady oracles on the same 4-layer mesh)
 """
 import os
 
@@ -121,5 +126,130 @@ def build():
           f'{len(out["run"])} rows -> {outFile}')
 
 
+# ============= Oracles on the 4-layer mesh (sweep/oracle.py) ========================
+nProc = 6                  # buildOracle processes
+oracleFiles = {'unsteady': os.path.join(common.DATA, 'datasets', 'coarse_unsteady.npz'),
+               'steady3d': os.path.join(common.DATA, 'datasets', 'coarse_steady3d.npz')}
+
+
+def columnGeometry(geo, nodes, tets, xy, nds, cols, nDisk=400):
+    """Geometry of the interior 3D cells of each column (cols (nc, 2) grid points), from
+    the cylinder (geo) on the extruded coarse mesh: volFrac (solid volume / cell volume),
+    N = sum_s frac_s (n ds)_s / D (outward area normal of the surface in the cell per
+    unit span / D), r = body-piece centroid minus grid point [m]. xy, nds: the surface
+    stations and their tent-weighted normals x arc length."""
+    from learn import pilot3d
+    from sweep import oracle
+    thick = oracle.nLayers * oracle.hz
+    level = np.rint(nodes[:, 2] / oracle.hz).astype(int)
+    D = geo['D']
+    u = (np.arange(nDisk) + 0.5) / nDisk - 0.5
+    X, Y = np.meshgrid(geo['xc'] + D * u, geo['yc'] + D * u)
+    disk = np.column_stack([X.ravel(), Y.ravel()])
+    disk = disk[np.hypot(disk[:, 0] - geo['xc'], disk[:, 1] - geo['yc']) < D / 2]
+    Ld = pilot3d.lengthsInCells(disk, nodes, tets, thick, oracle.nLayers * 16)   # (nd, nn)
+    Ls = pilot3d.lengthsInCells(xy, nodes, tets, thick, oracle.nLayers * oracle.nzSample)
+    V = pilot3d.dualVolumes(nodes, tets)
+    dA = (D / nDisk) ** 2
+    out = {k: np.full(len(cols), np.nan) for k in ('volFrac', 'Nx', 'Ny', 'rx', 'ry')}
+    for c, (cx, cy) in enumerate(cols):
+        at = np.flatnonzero((np.hypot(nodes[:, 0] - cx, nodes[:, 1] - cy) < 1e-6)
+                            & (level > 0) & (level < oracle.nLayers))
+        i = at[0]                                       # interior cells are identical
+        w = Ld[:, i]
+        out['volFrac'][c] = w.sum() * dA / V[i]
+        N = Ls[:, i] @ nds / oracle.hz / D
+        out['Nx'][c], out['Ny'][c] = N
+        if w.sum() > 0:                                 # sliver: no solid volume -> NaN r
+            out['rx'][c], out['ry'][c] = (w @ disk) / w.sum() - [cx, cy]
+    return out
+
+
+def buildOracle(kind):
+    """One row per interior source node per snapshot of every finished coarse oracle run:
+    the coarse state at the node, the column geometry, and the source per unit span
+    S = f h^2 applied at that time (interpolated from the resolved snapshots exactly as
+    AERO-F does). Same columns as build(), plus snap, level, t and group (one (run,
+    snapshot, level) layer: Cd/Cl are per group).
+      kind 'unsteady': unsteady/oracle/runs/<case> (DONE), every snapshot
+      kind 'steady3d': unsteady/oracle/steady/<case> (DONE and converged), the one
+                       final state, with the constant source of steady-v0/runs/<case>
+    Cases run in parallel (nProc processes): columnGeometry takes ~30 s per case."""
+    from multiprocessing import Pool
+    from sweep import oracle
+    steady = kind == 'steady3d'
+    orcRuns = oracle.steadyDir if steady else os.path.join(oracle.oracleDir, 'runs')
+    names = sorted(n for n in os.listdir(orcRuns)
+                   if os.path.isfile(os.path.join(orcRuns, n, 'DONE'))
+                   and (not steady or converged(os.path.join(orcRuns, n))))
+    with Pool(nProc) as pool:
+        parts = pool.starmap(oracleCaseRows, [(kind, k, n) for k, n in enumerate(names)])
+    out = {key: np.concatenate([np.array(p[key], dtype=float) for p in parts])
+           for key in parts[0]}
+    outFile = oracleFiles[kind]
+    os.makedirs(os.path.dirname(outFile), exist_ok=True)
+    np.savez(outFile, runNames=np.array(names), **out)
+    print(f'{len(names)} oracle runs, {len(out["run"])} rows -> {outFile}')
+
+
+def oracleCaseRows(kind, k, name):
+    """buildOracle's rows (dict of lists) of oracle case name, run index k."""
+    from learn import pilot3d
+    from sweep import meshGen, oracle
+    steady = kind == 'steady3d'
+    orcRuns = oracle.steadyDir if steady else os.path.join(oracle.oracleDir, 'runs')
+    resolved = os.path.join(common.STEADY if steady else common.UNSTEADY, 'runs')
+    nodes, tets = common.readTop(oracle.meshFile)
+    level = np.rint(nodes[:, 2] / oracle.hz).astype(int)
+    gradient = leastSquaresGradient(nodes, tets)
+    h = meshGen.h
+
+    rows = {}
+    add = lambda k, v: rows.setdefault(k, []).append(v)
+    d = os.path.join(orcRuns, name)
+    src = np.load(os.path.join(d, 'oracleSource.npz'))
+    c = oracle.parseCase(name)
+    mach, rhoInf, pInf = common.readInlet(os.path.join(d, 'FluidFile'))
+    qInf = 0.5 * common.gamma * pInf * mach ** 2           # rho U^2 / 2
+    geo = meshGen.loadGeometry(os.path.join(resolved, name))
+    X = pilot3d.readSurfaceNodes(geo['surfFile'])
+    xy = np.unique(np.round(X[:, :2], 12), axis=0)
+    inner = (src['level'] > 0) & (src['level'] < oracle.nLayers)
+    node, col = src['node'][inner], src['col'][inner]
+    cols = np.array([nodes[node[col == j][0], :2] for j in range(col.max() + 1)])
+    G = columnGeometry(geo, nodes, tets, xy, pilot3d.stationNormals(xy), cols)
+
+    read = lambda q: common.readXpost(os.path.join(d, 'postpro', f'{q}.0000.xpost'))
+    t, rho = read('Density')
+    vel, p = read('Velocity')[1], read('Pressure')[1]
+    S = src['f'][:, inner] * h ** 2                 # (nts, ni, 2) per unit span [N/m]
+    for n in range(len(t)):
+        V = np.column_stack([rho[n], vel[n, :, 0], vel[n, :, 1], p[n]])
+        Gn = gradient(V)
+        Sn = np.stack([[np.interp(t[n], src['t'], S[:, i, a]) for a in range(2)]
+                       for i in range(len(node))])
+        for i, (nd, j) in enumerate(zip(node, col)):
+            for key, val in (('run', k), ('machInf', c.mach), ('ReInf', c.Re),
+                             ('ox', c.ox), ('oy', c.oy),
+                             ('qInf', qInf), ('duplicate', 0),
+                             ('x', cols[j, 0]), ('y', cols[j, 1]), ('h', h),
+                             ('D', geo['D']), ('Sx', Sn[i, 0]), ('Sy', Sn[i, 1]),
+                             ('snap', n), ('level', level[nd]), ('t', t[n]),
+                             ('group', (k * 10000 + n) * 10 + level[nd])):
+                add(key, val)
+            for key in ('volFrac', 'Nx', 'Ny', 'rx', 'ry'):
+                add(key, G[key][j])
+            for m, q in enumerate(stateNames):
+                add(q, V[nd, m])
+                add(f'd{q}_dx', Gn[nd, m, 0])
+                add(f'd{q}_dy', Gn[nd, m, 1])
+    print(f'{k}: {name}: {len(t)} snapshots x {len(node)} interior nodes', flush=True)
+    return rows
+
+
 if __name__ == '__main__':
-    build()
+    import sys
+    if sys.argv[1:] and sys.argv[1] in oracleFiles:
+        buildOracle(sys.argv[1])
+    else:
+        build()

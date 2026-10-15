@@ -1,7 +1,8 @@
 """Shared paths, gas constants, and AERO-F file readers.
 
 Data lives outside the repo (see README): DATA is the data root, STEADY the steady-v0
-pass (resolved runs, coarse oracle runs, meshes) in its original layout.
+pass (resolved runs, coarse oracle runs, meshes) in its original layout, UNSTEADY the
+unsteady sweep (mesh/, data/, runs/; set up by sweep/).
 """
 import os
 import re
@@ -10,6 +11,7 @@ import numpy as np
 
 DATA = os.path.expanduser(os.environ.get('CS230_DATA', '~/Research/cs230-data'))
 STEADY = os.path.join(DATA, 'steady-v0')
+UNSTEADY = os.path.join(DATA, 'unsteady')
 
 # Gas model of every run (AERO-F defaults; must match the FluidFiles)
 gamma = 1.4          # ratio of specific heats

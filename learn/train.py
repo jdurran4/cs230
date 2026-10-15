@@ -20,6 +20,13 @@ Usage (from the repo root):
   python -m learn.train export [--mirror] SET NAME        -> DATA/nn/NAME/
   --mirror: add a y-mirrored copy of every TRAINING row (x-y sets only): the problem is
   symmetric under y -> -y, and the copy doubles the coverage of rare column geometries.
+  --data FILE: dataset in DATA/datasets/ (default coarse_steady.npz; coarse_unsteady.npz
+  from python -m learn.dataset unsteady, where Cd/Cl are scored per (run, snapshot, level)).
+  Repeatable: the files' rows are combined, e.g. --data coarse_unsteady.npz --data
+  coarse_steady3d.npz trains on both. CV then scores only the FIRST file's rows (the
+  other files only add training rows), so the scores compare with that file alone.
+  Runs are matched by case name across files (one fold; --exclude drops all of them).
+  --exclude NAME: leave run NAME out entirely (repeatable), e.g. for a held-out online test
 
 ---- nnWeights.txt (plain numbers, whitespace separated, read in this order) ----------
     tag                       input set name (e.g. xy): AERO-F checks it, because
@@ -52,18 +59,41 @@ lr = 3e-3                  # learning rate
 weightDecay = 1e-4         # L2 penalty on the weights
 nFolds = 5
 seeds = [0, 1, 2]
-dataFile = os.path.join(common.DATA, 'datasets', 'coarse_steady.npz')
+dataFiles = []             # --data FILE, repeatable (default ['coarse_steady.npz'])
 mirror = False             # set by --mirror
+exclude = []               # run names left out of the data (--exclude NAME, repeatable)
 torch.set_num_threads(4)
 
 
 # ============= Data =================================================================
 def load():
-    raw = np.load(dataFile)
-    d = {k: raw[k] for k in raw.files if k != 'runNames'}
+    """Rows of every --data file, concatenated, with 'dataset' = the file's index. 'run'
+    is renumbered by case name over all files; 'group' (one Cd/Cl) is (file, run,
+    snapshot, level), so a steady file without snapshots or levels has one per run."""
+    parts, runNames = [], []
+    for i, name in enumerate(dataFiles or ['coarse_steady.npz']):
+        raw = np.load(os.path.join(common.DATA, 'datasets', name))
+        p = {k: raw[k] for k in raw.files if k not in ('runNames', 'group')}
+        n = len(p['run'])
+        for k in ('snap', 'level', 't'):
+            p.setdefault(k, np.zeros(n))
+        names = [str(s) for s in raw['runNames']]
+        runNames += [s for s in names if s not in runNames]
+        p['run'] = np.array([runNames.index(s) for s in names], float)[p['run'].astype(int)]
+        p['dataset'] = np.full(n, float(i))
+        parts.append(p)
+        print(f'{name}: {n} rows, {len(names)} runs')
+    keys = set(parts[0])
+    assert all(set(p) == keys for p in parts), 'the --data files have different columns'
+    d = {k: np.concatenate([p[k] for p in parts]) for k in keys}
+    d['group'] = ((d['dataset'] * 100000 + d['run']) * 10000 + d['snap']) * 10 + d['level']
+
     F = ft.candidates(d)
     used = sorted({f for names, _ in ft.inputSets.values() for f in names})
     keep = (d['duplicate'] == 0) & np.all([np.isfinite(F[f]) for f in used], axis=0)
+    if exclude:
+        keep &= ~np.isin(d['run'], [runNames.index(n) for n in exclude])
+        print(f'excluded runs: {", ".join(exclude)}')
     print(f'{keep.sum()} of {len(keep)} rows kept, {len(np.unique(d["run"][keep]))} runs')
     return ({k: v[keep] for k, v in d.items()}, {k: v[keep] for k, v in F.items()})
 
@@ -124,13 +154,14 @@ def crossValidate(d, F, setName, seed):
 
     sq, dCd, dCl = [], [], []
     for k in range(nFolds):
-        tr, te = fold != k, fold == k
+        tr, te = fold != k, (fold == k) & (d['dataset'] == 0)   # score the first file only
         model, stats = fit(*augment(X[tr], Y[tr], names, frame), seed)
         teRows = {key: v[te] for key, v in d.items()}
         S = ft.toSource(predict(model, stats, X[te]), teRows, frame) / norm[te]
         sq.append((S - true[te]) ** 2)
-        for r in np.unique(d['run'][te]):
-            m = d['run'][te] == r
+        group = d['group'][te]                  # Cd per run (steady), per layer (unsteady)
+        for r in np.unique(group):
+            m = group == r
             dCd.append(-(S[m, 0].sum() - true[te][m, 0].sum()))
             dCl.append(-(S[m, 1].sum() - true[te][m, 1].sum()))
     rms = lambda a: np.sqrt(np.mean(np.square(a)))
@@ -143,7 +174,8 @@ def cv(setNames):
     for frame in ('flow', 'xy'):                # round trip: target -> source is exact
         back = ft.toSource(ft.target(d, frame), d, frame)
         assert np.abs(back - np.column_stack([d['Sx'], d['Sy']])).max() / norm.max() < 1e-12
-    typical = np.sqrt(np.mean((np.column_stack([d['Sx'], d['Sy']]) / norm) ** 2))
+    first = d['dataset'] == 0
+    typical = np.sqrt(np.mean((np.column_stack([d['Sx'], d['Sy']])[first] / norm[first]) ** 2))
     print(f'typical |S / (q_inf D)| of a column: {typical:.3f} RMS\n')
     print(f'{"input set":<16} {"cell RMSE":>17} {"Cd err RMS":>17} {"Cl err RMS":>17} '
           f'{"Cd bias":>8}')
@@ -196,6 +228,14 @@ if __name__ == '__main__':
     args = sys.argv[1:]
     mirror = '--mirror' in args
     args = [a for a in args if a != '--mirror']
+    while '--data' in args:
+        i = args.index('--data')
+        dataFiles.append(args[i + 1])
+        del args[i:i + 2]
+    while '--exclude' in args:
+        i = args.index('--exclude')
+        exclude.append(args[i + 1])
+        del args[i:i + 2]
     if args[0] == 'cv':
         cv(args[1:] or list(ft.inputSets))
     else:
