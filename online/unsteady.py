@@ -39,7 +39,9 @@ def fields(d):
     return t[:n], dict(p=p[:n], rho=rho[:n], u=vel[:n, :, 0], v=vel[:n, :, 1])
 
 
-def main(name, tags):
+def forceCurves(name, tags):
+    """Freestream state and {label: (t, Cd, Cl, field error)} for the oracle (error None)
+    and each online run CASE_TAG."""
     c = oracle.parseCase(name)
     fs = newRun.freestream(c.mach, c.Re)
     qD = 0.5 * fs['rho'] * fs['U'] ** 2 * meshGen.D
@@ -76,6 +78,11 @@ def main(name, tags):
             dist = np.sqrt(np.mean((fO[q][k][:, on] - free) ** 2, axis=1)) / ref
             err[q] = e / np.maximum(dist, 1e-12)
         curves[tag] = (t, -Sn[:, :, 0].sum(1) / qD, -Sn[:, :, 1].sum(1) / qD, err)
+    return fs, curves
+
+
+def main(name, tags):
+    fs, curves = forceCurves(name, tags)
 
     # table
     print(f'{name}: Cd, Cl at t = 5, 10, 25, end (D/U); field error / disturbance (p, u, v) at the end')

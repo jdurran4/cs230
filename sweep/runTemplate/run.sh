@@ -25,7 +25,7 @@ mkdir -p results references postpro
 rm -f DONE
 
 # run simulation
-mpirun -np $NP $AEROF FluidFile |& tee log.out
+mpirun --bind-to none -np $NP $AEROF FluidFile |& tee log.out
 STATUS=${PIPESTATUS[0]}
 # AERO-F exits 0 even when it aborts ("Cannot further reduce CFL number. Aborting.")
 if [ $STATUS -eq 0 ] && [ -f references/MeshData ] && ! grep -q 'Aborting' log.out; then
