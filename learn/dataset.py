@@ -21,6 +21,8 @@ Per row:
                                       AERO-F computes them: unweighted least squares
                                       over the edge neighbors (Gradient = LeastSquares)
   Sx, Sy                              true force on the fluid per unit span [N/m]
+  pRef                                pressure the source is relative to: p_inf on the
+                                      --Dh meshes, 0 (absolute) otherwise
 
 Usage (from the repo root):
   python -m learn.dataset            -> DATA/datasets/coarse_steady.npz
@@ -28,6 +30,8 @@ Usage (from the repo root):
                                         unsteady oracle snapshots, interior 3D cells)
   python -m learn.dataset steady3d   -> DATA/datasets/coarse_steady3d.npz (buildOracle:
                                         steady oracles on the same 4-layer mesh)
+  python -m learn.dataset KIND --Dh X   the same on oracle mesh D/h = X (sweep/oracle.py,
+                                        p - p_inf source) -> coarse_<kind>_DhX.npz
 """
 import os
 
@@ -147,8 +151,8 @@ def columnGeometry(geo, nodes, tets, xy, nds, cols, nDisk=400):
     X, Y = np.meshgrid(geo['xc'] + D * u, geo['yc'] + D * u)
     disk = np.column_stack([X.ravel(), Y.ravel()])
     disk = disk[np.hypot(disk[:, 0] - geo['xc'], disk[:, 1] - geo['yc']) < D / 2]
-    Ld = pilot3d.lengthsInCells(disk, nodes, tets, thick, oracle.nLayers * 16)   # (nd, nn)
-    Ls = pilot3d.lengthsInCells(xy, nodes, tets, thick, oracle.nLayers * oracle.nzSample)
+    hitD, Ld = pilot3d.lengthsInCells(disk, nodes, tets, thick, oracle.nLayers * 16)
+    hitS, Ls = pilot3d.lengthsInCells(xy, nodes, tets, thick, oracle.nLayers * oracle.nzSample)
     V = pilot3d.dualVolumes(nodes, tets)
     dA = (D / nDisk) ** 2
     out = {k: np.full(len(cols), np.nan) for k in ('volFrac', 'Nx', 'Ny', 'rx', 'ry')}
@@ -156,16 +160,16 @@ def columnGeometry(geo, nodes, tets, xy, nds, cols, nDisk=400):
         at = np.flatnonzero((np.hypot(nodes[:, 0] - cx, nodes[:, 1] - cy) < 1e-6)
                             & (level > 0) & (level < oracle.nLayers))
         i = at[0]                                       # interior cells are identical
-        w = Ld[:, i]
+        w = pilot3d.cellLengths(hitD, Ld, i)
         out['volFrac'][c] = w.sum() * dA / V[i]
-        N = Ls[:, i] @ nds / oracle.hz / D
+        N = pilot3d.cellLengths(hitS, Ls, i) @ nds / oracle.hz / D
         out['Nx'][c], out['Ny'][c] = N
         if w.sum() > 0:                                 # sliver: no solid volume -> NaN r
             out['rx'][c], out['ry'][c] = (w @ disk) / w.sum() - [cx, cy]
     return out
 
 
-def buildOracle(kind):
+def buildOracle(kind, Dh=None):
     """One row per interior source node per snapshot of every finished coarse oracle run:
     the coarse state at the node, the column geometry, and the source per unit span
     S = f h^2 applied at that time (interpolated from the resolved snapshots exactly as
@@ -177,32 +181,38 @@ def buildOracle(kind):
     Cases run in parallel (nProc processes): columnGeometry takes ~30 s per case."""
     from multiprocessing import Pool
     from sweep import oracle
+    if Dh:
+        oracle.setMesh(Dh)
     steady = kind == 'steady3d'
     orcRuns = oracle.steadyDir if steady else os.path.join(oracle.oracleDir, 'runs')
-    names = sorted(n for n in os.listdir(orcRuns)
-                   if os.path.isfile(os.path.join(orcRuns, n, 'DONE'))
-                   and (not steady or converged(os.path.join(orcRuns, n))))
+    allRuns = sorted(os.listdir(orcRuns))
+    names = [n for n in allRuns if os.path.isfile(os.path.join(orcRuns, n, 'DONE'))
+             and (not steady or converged(os.path.join(orcRuns, n)))]
     with Pool(nProc) as pool:
-        parts = pool.starmap(oracleCaseRows, [(kind, k, n) for k, n in enumerate(names)])
+        parts = pool.starmap(oracleCaseRows, [(kind, k, n, Dh) for k, n in enumerate(names)])
     out = {key: np.concatenate([np.array(p[key], dtype=float) for p in parts])
            for key in parts[0]}
-    outFile = oracleFiles[kind]
+    root, ext = os.path.splitext(oracleFiles[kind])
+    outFile = f'{root}_{oracle.meshTag}{ext}' if oracle.meshTag else oracleFiles[kind]
     os.makedirs(os.path.dirname(outFile), exist_ok=True)
     np.savez(outFile, runNames=np.array(names), **out)
-    print(f'{len(names)} oracle runs, {len(out["run"])} rows -> {outFile}')
+    print(f'{len(names)} oracle runs ({len(allRuns) - len(names)} skipped), '
+          f'{len(out["run"])} rows -> {outFile}')
 
 
-def oracleCaseRows(kind, k, name):
-    """buildOracle's rows (dict of lists) of oracle case name, run index k."""
+def oracleCaseRows(kind, k, name, Dh=None):
+    """buildOracle's rows (dict of lists) of oracle case name, run index k, mesh D/h Dh."""
     from learn import pilot3d
     from sweep import meshGen, oracle
+    if Dh:
+        oracle.setMesh(Dh)
     steady = kind == 'steady3d'
     orcRuns = oracle.steadyDir if steady else os.path.join(oracle.oracleDir, 'runs')
     resolved = os.path.join(common.STEADY if steady else common.UNSTEADY, 'runs')
     nodes, tets = common.readTop(oracle.meshFile)
     level = np.rint(nodes[:, 2] / oracle.hz).astype(int)
     gradient = leastSquaresGradient(nodes, tets)
-    h = meshGen.h
+    h = oracle.h
 
     rows = {}
     add = lambda k, v: rows.setdefault(k, []).append(v)
@@ -234,6 +244,7 @@ def oracleCaseRows(kind, k, name):
                              ('qInf', qInf), ('duplicate', 0),
                              ('x', cols[j, 0]), ('y', cols[j, 1]), ('h', h),
                              ('D', geo['D']), ('Sx', Sn[i, 0]), ('Sy', Sn[i, 1]),
+                             ('pRef', pInf if oracle.gauge else 0.0),
                              ('snap', n), ('level', level[nd]), ('t', t[n]),
                              ('group', (k * 10000 + n) * 10 + level[nd])):
                 add(key, val)
@@ -250,6 +261,6 @@ def oracleCaseRows(kind, k, name):
 if __name__ == '__main__':
     import sys
     if sys.argv[1:] and sys.argv[1] in oracleFiles:
-        buildOracle(sys.argv[1])
+        buildOracle(sys.argv[1], float(sys.argv[3]) if sys.argv[2:3] == ['--Dh'] else None)
     else:
         build()

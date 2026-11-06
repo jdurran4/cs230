@@ -80,13 +80,22 @@ def owningNode(P, nodes, tets, chunk=4000):
 
 
 def lengthsInCells(xy, nodes, tets, thickness, nz):
-    """L (np, nn): length of the vertical line at each x-y point inside each node's cell."""
+    """hit (nh,), L (np, nh): the nodes whose cell holds any of the lines, sorted, and the
+    length of the vertical line at each x-y point inside each of those cells. Only the
+    touched nodes are stored: a full (np, nn) matrix would not fit on the finer meshes."""
     z = (np.arange(nz) + 0.5) / nz * thickness
     P = np.column_stack([np.repeat(xy, nz, axis=0), np.tile(z, len(xy))])
     vtx = owningNode(P, nodes, tets)
-    L = np.zeros((len(xy), len(nodes)))
-    np.add.at(L, (np.repeat(np.arange(len(xy)), nz), vtx), thickness / nz)
-    return L
+    hit, col = np.unique(vtx, return_inverse=True)
+    L = np.zeros((len(xy), len(hit)))
+    np.add.at(L, (np.repeat(np.arange(len(xy)), nz), col.ravel()), thickness / nz)
+    return hit, L
+
+
+def cellLengths(hit, L, node):
+    """Column of lengthsInCells' L for one node (zeros if no line enters its cell)."""
+    at = np.searchsorted(hit, node)
+    return L[:, at] if at < len(hit) and hit[at] == node else np.zeros(len(L))
 
 
 def dualVolumes(nodes, tets):
@@ -162,8 +171,9 @@ if __name__ == '__main__':
           f'{len(tets)} tets, h = hz = {h:.4f}')
 
     xy, s, geo = stationSources(runDir)
-    L = lengthsInCells(xy, nodes, tets, thick, nLayers * nzSample)
-    F = L.T @ s                                                    # (nn, 2) force [N]
+    hit, L = lengthsInCells(xy, nodes, tets, thick, nLayers * nzSample)
+    F = np.zeros((len(nodes), 2))                                  # (nn, 2) force [N]
+    F[hit] = L.T @ s
     print(f'\n1. sum_K F = {F.sum(axis=0)} N,  thickness x sum_s s = '
           f'{thick * s.sum(axis=0)} N')
 
@@ -192,7 +202,9 @@ if __name__ == '__main__':
     X, Y = np.meshgrid(geo['xc'] + D * u, geo['yc'] + D * u)
     disk = np.column_stack([X.ravel(), Y.ravel()])
     disk = disk[np.hypot(disk[:, 0] - geo['xc'], disk[:, 1] - geo['yc']) < D / 2]
-    Vsolid = lengthsInCells(disk, nodes, tets, thick, nLayers * 16).sum(axis=0) * (D / nDisk) ** 2
+    hitD, Ld = lengthsInCells(disk, nodes, tets, thick, nLayers * 16)
+    Vsolid = np.zeros(len(nodes))
+    Vsolid[hitD] = Ld.sum(axis=0) * (D / nDisk) ** 2
     volFrac = Vsolid / dualVolumes(nodes, tets)
     inp = np.load(os.path.join(runDir, 'inputs.npz'))
     worstV = 0.0

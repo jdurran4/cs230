@@ -10,7 +10,8 @@ sweep/oracle.py), for one case:
                  disturbance itself.
 
 Usage (from the repo root):
-  python -m online.unsteady CASE TAG [TAG ...]   (online runs unsteady/online/CASE_TAG)
+  python -m online.unsteady [--Dh X] CASE TAG [TAG ...]   (online runs unsteady/online/CASE_TAG
+                                                 on mesh D/h = X)
 Writes unsteady/online/CASE_compare.png and prints a table.
 """
 import os
@@ -54,7 +55,7 @@ def forceCurves(name, tags):
     od = os.path.join(oracle.oracleDir, 'runs', name)
     src = np.load(os.path.join(od, 'oracleSource.npz'))
     inner = src['level'] == level
-    S = src['f'][:, inner] * meshGen.h ** 2                        # (nts, ncol, 2)
+    S = src['f'][:, inner] * oracle.h ** 2                         # (nts, ncol, 2)
     tO, fO = fields(od)
     St = np.stack([[np.interp(tO, src['t'], S[:, j, a]) for a in range(2)]
                    for j in range(S.shape[1])])                      # (ncol, 2, nt)
@@ -110,12 +111,17 @@ def main(name, tags):
     ax[2].set_ylim(bottom=0)
     fig.suptitle(f'{name}: online neural source vs coarse oracle')
     fig.tight_layout()
-    out = os.path.join(common.UNSTEADY, 'online', f'{name}_compare.png')
+    suffix = f'_{oracle.meshTag}' if oracle.meshTag else ''
+    out = os.path.join(common.UNSTEADY, 'online', f'{name}_compare{suffix}.png')
     fig.savefig(out, dpi=120)
     print('wrote', out)
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
+    args = sys.argv[1:]
+    if args[:1] == ['--Dh']:
+        oracle.setMesh(float(args[1]))
+        args = args[2:]
+    if len(args) < 2:
         sys.exit(__doc__)
-    main(sys.argv[1], sys.argv[2:])
+    main(args[0], args[1:])

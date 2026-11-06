@@ -6,8 +6,9 @@
 #   sweep/runOracles.sh                       every case
 #   sweep/runOracles.sh M1.5_Re100_x0.04_y0.12 ...   only these
 #   JOBS=4 NP=1 DIR=runs sweep/runOracles.sh  defaults
+#   MESH=Dh2.4 sweep/runOracles.sh            mesh D/h = 2.4 (unsteady/oracle/Dh2.4/$DIR/)
 # Log: unsteady/oracle/runOracles.log; each case's AERO-F log is $DIR/<case>/log.out.
-cd "${CS230_DATA:-$HOME/Research/cs230-data}/unsteady/oracle"
+cd "${CS230_DATA:-$HOME/Research/cs230-data}/unsteady/oracle/$MESH"
 NP=${NP:-1}
 JOBS=${JOBS:-4}
 export DIR=${DIR:-runs}

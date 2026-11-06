@@ -73,9 +73,9 @@ FMT = '%.16e'  # coordinate precision
 
 
 # ============= Fluid domain =========================================================
-def fluidNodes(nz=1, hz=dz):
-    """Structured grid nodes, nz layers of thickness hz. x varies fastest, then y, then
-    z (same as the FSI_NAS domain.top): id = 1 + i + nx*j + nx*ny*k."""
+def fluidNodes(nz=1, hz=dz, h=h):
+    """Structured grid nodes with x-y spacing h, nz layers of thickness hz. x varies
+    fastest, then y, then z (same as the FSI_NAS domain.top): id = 1 + i + nx*j + nx*ny*k."""
     nx = round(Lx / h) + 1
     ny = round(Ly / h) + 1
     if abs((nx - 1) * h - Lx) > 1e-12 * Lx or abs((ny - 1) * h - Ly) > 1e-12 * Ly:

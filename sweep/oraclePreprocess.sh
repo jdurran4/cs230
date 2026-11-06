@@ -5,7 +5,8 @@
 # subdomains: run each case on 1, 2, 4 or 8 ranks.
 cd "$(dirname "$0")"
 source tools.sh
-cd "${CS230_DATA:-$HOME/Research/cs230-data}/unsteady/oracle"
+# MESH=Dh2.4 selects the mesh of python -m sweep.oracle --Dh 2.4 mesh.
+cd "${CS230_DATA:-$HOME/Research/cs230-data}/unsteady/oracle/$MESH"
 NSUB=8
 mkdir -p data
 $PARTNMESH mesh/domain.top "$NSUB"

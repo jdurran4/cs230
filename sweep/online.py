@@ -9,14 +9,17 @@ Writes unsteady/online/<case>_<tag>/:
   FluidFile       OracleFluidFile_template, OracleSourceFile replaced by
                   NeuralSourceWeightsFile (DATA/nn/<net>/nnWeights.txt) and
                   NeuralSourceGeometryFile
-  nnGeometry.txt  gas constants, then per column: x y h D volFrac Nx Ny rx ry (the
-                  interior-cell geometry, learn/dataset.columnGeometry). Sliver columns
-                  with no solid volume (r undefined) are left out, as in training.
+  nnGeometry.txt  gas constants and pRef (the pressure the net's source is relative to:
+                  p_inf with --Dh, 0 without), then per column: x y h D volFrac Nx Ny rx
+                  ry (the interior-cell geometry, learn/dataset.columnGeometry). Sliver
+                  columns with no solid volume (r undefined) are left out, as in training.
   run.sh, postpro.sh, clean.sh
 
 Usage (from the repo root):
-  python -m sweep.online CASE NET [TAG]     TAG defaults to NET
-then  unsteady/online/<CASE>_<TAG>/run.sh 1  and its postpro.sh.
+  python -m sweep.online [--Dh X] CASE NET [TAG]     TAG defaults to NET; X = coarse mesh
+                                                     D/h, from sweep/oracle.py
+then  unsteady/online/<CASE>_<TAG>/run.sh 1  and its postpro.sh. Give each mesh its own
+TAG: the directory does not depend on X.
 """
 import os
 import shutil
@@ -63,15 +66,21 @@ def setup(name, net, tag):
     xy = np.unique(np.round(X[:, :2], 12), axis=0)
     G = dataset.columnGeometry(geo, nodes, tets, xy, pilot3d.stationNormals(xy), cols)
     keep = np.isfinite(G['rx'])
+    _, _, pInf = common.readInlet(os.path.join(common.UNSTEADY, 'runs', name, 'FluidFile'))
+    pRef = pInf if oracle.gauge else 0.0
     with open(os.path.join(d, 'nnGeometry.txt'), 'w') as fh:
-        fh.write(f'{common.gamma} {common.R_gas} {common.C_suth} {common.S_suth}\n')
+        fh.write(f'{common.gamma} {common.R_gas} {common.C_suth} {common.S_suth} {pRef:.17g}\n')
         for j in np.flatnonzero(keep):
-            fh.write(' '.join(f'{v:.17g}' for v in (cols[j, 0], cols[j, 1], meshGen.h, geo['D'],
+            fh.write(' '.join(f'{v:.17g}' for v in (cols[j, 0], cols[j, 1], oracle.h, geo['D'],
                      G['volFrac'][j], G['Nx'][j], G['Ny'][j], G['rx'][j], G['ry'][j])) + '\n')
     print(f'online/{name}_{tag}: net {net}, {keep.sum()} columns ({(~keep).sum()} sliver skipped)')
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 3:
+    args = sys.argv[1:]
+    if args[:1] == ['--Dh']:
+        oracle.setMesh(float(args[1]))
+        args = args[2:]
+    if len(args) < 2:
         sys.exit(__doc__)
-    setup(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else sys.argv[2])
+    setup(args[0], args[1], args[2] if len(args) > 2 else args[1])

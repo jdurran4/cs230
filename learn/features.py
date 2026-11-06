@@ -13,7 +13,7 @@ Candidate inputs (all dimensionless):
                            dh = |r|/h
   x-y frame:               Mx, My = u/c, v/c, absM = |u|/c, logRec = log(rho c D / mu),
                            Nx, Ny, rxh, ryh = r/h
-  both:                    volFrac, Dh = D/h
+  both:                    volFrac, Dh = D/h, logDh = log(D/h)
   gradients (x-y):         h grad(rho)/rho, h grad(u)/c, h grad(v)/c, h grad(p)/p: the
                            change across one coarse cell, e.g. gx_u = h du/dx / c
 """
@@ -32,6 +32,9 @@ inputSets = {
 gradNames = [f'g{a}_{q}' for q in ('rho', 'u', 'v', 'p') for a in 'xy']
 inputSets['xy+grad'] = (inputSets['xy'][0] + gradNames, 'xy')
 inputSets['xy+absM+grad'] = (inputSets['xy+absM'][0] + gradNames, 'xy')
+# 'xy' with log(D/h) in place of D/h: the meshes 0.6, 1.2, 2.4, 4.8 become evenly spaced.
+# Not in AERO-F yet (VolumicForceTerm.h computes Dh), so CV only for now.
+inputSets['xyLogDh'] = ([n if n != 'Dh' else 'logDh' for n in inputSets['xy'][0]], 'xy')
 
 
 # inputs that change sign when the flow is mirrored in y (y -> -y); the target's y
@@ -60,7 +63,7 @@ def candidates(d):
         Npar=dot(N, e), Nperp=dot(N, eP), cosT=dot(r, e) / rn, sinT=dot(r, eP) / rn, dh=rn / h,
         Mx=u / c, My=v / c, absM=speed / c, logRec=np.log(rho * c * D / mu),
         Nx=d['Nx'], Ny=d['Ny'], rxh=d['rx'] / h, ryh=d['ry'] / h,
-        volFrac=d['volFrac'], Dh=D / h)
+        volFrac=d['volFrac'], Dh=D / h, logDh=np.log(D / h))
     for a in 'xy':
         f[f'g{a}_rho'] = h * d[f'drho_d{a}'] / rho
         f[f'g{a}_u'] = h * d[f'du_d{a}'] / c
@@ -76,10 +79,11 @@ def flowFrame(d):
 
 
 def scales(d):
-    """pbar D N (the pressure baseline, N/m, x-y) and (pbar + qbar) D per row."""
+    """(pbar - pRef) D N (the pressure baseline, N/m, x-y; pRef: the pressure the source
+    is relative to, learn/dataset.py) and (pbar + qbar) D per row."""
     pB, qB = d['p'], 0.5 * d['rho'] * (d['u'] ** 2 + d['v'] ** 2)
     N = np.column_stack([d['Nx'], d['Ny']])
-    return (pB * d['D'])[:, None] * N, (pB + qB) * d['D']
+    return ((pB - d.get('pRef', 0.0)) * d['D'])[:, None] * N, (pB + qB) * d['D']
 
 
 def target(d, frame):

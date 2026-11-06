@@ -4,7 +4,8 @@ source() does exactly what the C++ does at one node: node state (rho, u, v, p) [
 column geometry -> x-y inputs -> network -> force on the fluid per unit span S [N/m]:
   inputs  Mx = u/c, My = v/c, logRec = log(rho c D / mu(T)), volFrac, Nx, Ny, rx/h, ry/h,
           D/h                                             (learn/features.py, set 'xy')
-  S       = (pbar + qbar) D out + pbar D N,   pbar = p, qbar = rho |u|^2 / 2
+  S       = (pbar + qbar) D out + (pbar - pRef) D N,   pbar = p, qbar = rho |u|^2 / 2
+            pRef = p_inf for the p - p_inf nets, 0 for the absolute-pressure ones
 The C++ then adds -ctrlVol * S / h^2 (nondimensionalized) to the momentum residual.
 
 Running it on a case prints the C++ test values: inputs, outputs, and S of column 0 at
@@ -55,8 +56,8 @@ def loadNet(path):
 
 
 def loadGeometry(path):
-    """Gas constants (first line) and one row per source column: x y h D volFrac Nx Ny
-    rx ry (written by the steady-v0 nnExport.py geometry; N and r already in x-y)."""
+    """Gas constants and pRef (first line; older files have no pRef) and one row per
+    source column: x y h D volFrac Nx Ny rx ry (N and r already in x-y)."""
     with open(path) as f:
         consts = tuple(map(float, f.readline().split()))
         cols = np.array([list(map(float, line.split())) for line in f if line.strip()])
@@ -65,7 +66,8 @@ def loadGeometry(path):
 
 def source(net, consts, col, rho, u, v, p):
     """(inputs, outputs, S [N/m]) at one node, as the C++ computes them."""
-    gamma, R, C, Sref = consts
+    gamma, R, C, Sref, *rest = consts
+    pRef = rest[0] if rest else 0.0
     x, y, h, D, volFrac, Nx, Ny, rx, ry = col
     c = np.sqrt(gamma * p / rho)
     T = p / (rho * R)
@@ -74,7 +76,7 @@ def source(net, consts, col, rho, u, v, p):
                        ry / h, D / h])
     out = net(inputs)
     pBar, qBar = p, 0.5 * rho * (u * u + v * v)
-    S = (pBar + qBar) * D * out + pBar * D * np.array([Nx, Ny])
+    S = (pBar + qBar) * D * out + (pBar - pRef) * D * np.array([Nx, Ny])
     return inputs, out, S
 
 
@@ -89,7 +91,7 @@ if __name__ == '__main__':
     print('nnWeights.txt reproduces nnTest.txt')
 
     consts, cols = loadGeometry(os.path.join(caseDir, 'nnGeometry.txt'))
-    assert np.allclose(consts, (common.gamma, common.R_gas, common.C_suth, common.S_suth))
+    assert np.allclose(consts[:4], (common.gamma, common.R_gas, common.C_suth, common.S_suth))
     mach, rho, p = common.readInlet(os.path.join(caseDir, 'FluidFile'))
     u = mach * np.sqrt(common.gamma * p / rho)
     print(f'freestream rho u v p = {rho:.10g} {u:.10g} 0 {p:.10g}')

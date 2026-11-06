@@ -5,10 +5,13 @@ ones it will see online (with the exact source instead of the network).
 
 Coarse mesh: the sweep's x-y grid (meshGen, h = D/1.2) extruded to nLayers layers of
 thickness hz, each hex split into the same 6 tets as meshGen. No cylinder, no AMR.
+--Dh selects the spacing h = D/Dh (hz = h) on the same domain: its files live in
+oracle/Dh<Dh>/ (mesh/, data/, runs/, steady/) and it uses the p - p_inf source below.
+Without --Dh: the original D/h 1.2 runs directly in oracle/, absolute pressure.
 
 Source: the resolved flow is z-uniform, so a surface station at (x, y) carries a force
-per unit span s(t) (on the fluid, absolute pressure + shear, as learn/pilot3d.py), and
-the force on the fluid in the 3D median-dual cell K of coarse node K is
+per unit span s(t) (on the fluid, pressure + shear), and the force on the fluid in the 3D
+median-dual cell K of coarse node K is
     F_K(t) = sum_s s(t) L_K(x_s, y_s),
 with L_K the length of the vertical line through the station inside cell K. The interior
 cells (levels 1..nLayers-1) of a column are identical; the boundary half cells (levels 0
@@ -17,6 +20,12 @@ So every level of a column gets the interior cells' force per unit volume f = F_
 (z-uniform, column total unchanged), which is also how the online neural source applies
 its prediction. AERO-F adds -ctrlVol f to the momentum residual (ctrlVol = V_K: no
 embedded surface in the coarse run).
+
+Pressure reference: p - p_inf on the --Dh meshes, absolute in the original runs (as
+learn/pilot3d.py). Same total force (the closed-surface integral of n is 0), but the
+absolute ring of cells pushes outward with p n, and at D/h 4.8 that drove the near wake
+of M1.5 to negative pressure (steady never converged, unsteady aborted at step 427 of
+1000); with p - p_inf both ran without a failsafe.
 
 oracleSource.txt (SI units, read by AERO-F's OracleSourceFile):
     nPoints nTimes
@@ -29,6 +38,7 @@ first and after the last). The same data, plus F_K and the node ids, is saved in
 oracleSource.npz for building the training targets.
 
 Usage (from the repo root):
+    python -m sweep.oracle [--Dh X] mode ...  every mode below, on mesh D/h = X
     python -m sweep.oracle mesh               unsteady/oracle/mesh/domain.top
     sweep/oraclePreprocess.sh                 decompose it (unsteady/oracle/data/)
     python -m sweep.oracle setup [case ...]   oracle/runs/<case>/ for every resolved run
@@ -37,6 +47,8 @@ Usage (from the repo root):
     python -m sweep.oracle steady [case ...]  oracle/steady/<case>/ for every steady-v0
                                               resolved run (or only the listed ones)
     DIR=steady sweep/runOracles.sh            run + postpro them
+    --new after setup or steady: skip cases that already have a FluidFile (rewriting one
+    makes runOracles.sh rerun it). MESH=Dh<X> selects the mesh in the two shell scripts.
 
 Steady oracles: the same coarse mesh and z-uniform binning, with the constant source of
 a converged steady resolved run (steady-v0/runs/<case>, last output; written as two
@@ -56,7 +68,8 @@ from sweep import meshGen, newRun
 
 # ============= User-defined parameters ==============================================
 nLayers = 4                # coarse layers in z
-hz = meshGen.h             # layer thickness (any value: the flow is z-uniform)
+h = meshGen.h              # coarse x-y spacing (setMesh)
+hz = h                     # layer thickness (any value: the flow is z-uniform)
 nzSample = 64              # z samples per layer for L_K
 outputEvery = 0.25         # field snapshots, D/U (the resolved runs': 5 steps)
 restartEvery = 10.0        # restart files, D/U
@@ -68,24 +81,37 @@ templateFile = os.path.join(sweepDir, 'OracleFluidFile_template')
 steadyDir = os.path.join(oracleDir, 'steady')
 steadyTemplateFile = os.path.join(sweepDir, 'SteadyOracleFluidFile_template')
 caseScripts = ('run.sh', 'clean.sh', 'postpro.sh')
+meshTag = ''               # '' (original runs, directly in oracle/) or 'Dh2.4'
+gauge = False              # source with p - p_inf (setMesh) instead of absolute pressure
+
+
+def setMesh(Dh):
+    """Point this module at the coarse mesh D/h = Dh (oracle/Dh<Dh>/, p - p_inf source)."""
+    global h, hz, meshTag, gauge, oracleDir, meshFile, steadyDir
+    h = hz = meshGen.D / Dh
+    meshTag, gauge = f'Dh{Dh:g}', True
+    oracleDir = os.path.join(common.UNSTEADY, 'oracle', meshTag)
+    meshFile = os.path.join(oracleDir, 'mesh', 'domain.top')
+    steadyDir = os.path.join(oracleDir, 'steady')
 
 
 # ============= Coarse 3D mesh =======================================================
 def writeMesh():
-    nx, ny, nodes = meshGen.fluidNodes(nLayers, hz)
+    nx, ny, nodes = meshGen.fluidNodes(nLayers, hz, h)
     tets = meshGen.fluidTets(nx, ny, nodes, nLayers)
     faces = meshGen.boundaryFaces(nodes, tets, nLayers * hz)
     os.makedirs(os.path.dirname(meshFile), exist_ok=True)
     meshGen.writeDomain(meshFile, nodes, tets, faces)
     print(f'{meshFile}: {nx} x {ny} x {nLayers + 1} = {len(nodes)} nodes, {len(tets)} tets, '
-          f'h = {meshGen.h:.4f}, hz = {hz:.4f}')
+          f'h = {h:.4f}, hz = {hz:.4f}')
 
 
 # ============= Binning ==============================================================
 def stationSourceHistory(runDir):
     """Station x-y (ns, 2), snapshot times (nt,) and the source on the fluid per unit
-    span at every snapshot, absolute pressure (nt, ns, 2) [N/m] (pilot3d.stationSources
-    for every snapshot instead of the last)."""
+    span at every snapshot (nt, ns, 2) [N/m] (pilot3d.stationSources for every snapshot
+    instead of the last). EmbeddedSurfaceForce holds p - p_inf; absolute pressure adds
+    p_inf back."""
     geo = meshGen.loadGeometry(runDir)
     X = pilot3d.readSurfaceNodes(geo['surfFile'])
     t, Fs = pilot3d.readSurfaceForce(os.path.join(runDir, 'postpro', 'EmbeddedSurfaceForce'))
@@ -93,7 +119,8 @@ def stationSourceHistory(runDir):
     Fst = np.zeros((len(t), len(xy), 2))
     np.add.at(Fst, (slice(None), station.ravel()), Fs[:, :, :2])
     _, _, pInf = common.readInlet(os.path.join(runDir, 'FluidFile'))
-    s = -(Fst - pInf * geo['span'] * pilot3d.stationNormals(xy)) / geo['span']
+    pAdded = 0.0 if gauge else pInf
+    s = -(Fst - pAdded * geo['span'] * pilot3d.stationNormals(xy)) / geo['span']
     if np.any(np.diff(t) <= 0):
         raise ValueError(f'{runDir}: snapshot times are not increasing')
     return xy, t, s
@@ -107,9 +134,8 @@ def binCase(name, nodes, tets, V, steady=False):
     if steady:                                             # AERO-F needs >= 2 snapshots
         t, s = np.array([0.0, 1.0]), s[[-1, -1]]
     thick = nLayers * hz
-    L = pilot3d.lengthsInCells(xy, nodes, tets, thick, nLayers * nzSample)   # (ns, nn)
-    hit = np.flatnonzero(L.sum(axis=0) > 0)                # nodes whose cell holds a station
-    F3 = np.einsum('sk,tsc->tkc', L[:, hit], s)            # (nt, nhit, 2) true 3D cell force [N]
+    hit, L = pilot3d.lengthsInCells(xy, nodes, tets, thick, nLayers * nzSample)  # (ns, nhit)
+    F3 = np.einsum('sk,tsc->tkc', L, s)                    # (nt, nhit, 2) true 3D cell force [N]
 
     # z-uniform source: every level of a column gets the interior cells' force per unit
     # volume (the interior cells are identical; the boundary half cells' own split is
@@ -241,19 +267,26 @@ def steadyNames():
 
 # ============= Main =================================================================
 if __name__ == '__main__':
-    if len(sys.argv) < 2 or sys.argv[1] not in ('mesh', 'setup', 'steady'):
+    args = sys.argv[1:]
+    if args[:1] == ['--Dh']:
+        setMesh(float(args[1]))
+        args = args[2:]
+    onlyNew = '--new' in args
+    args = [a for a in args if a != '--new']
+    if not args or args[0] not in ('mesh', 'setup', 'steady'):
         sys.exit(__doc__)
-    if sys.argv[1] == 'mesh':
+    if args[0] == 'mesh':
         writeMesh()
         sys.exit()
     nodes, tets = common.readTop(meshFile)
     V = pilot3d.dualVolumes(nodes, tets)
-    if sys.argv[1] == 'steady':
-        for name in sys.argv[2:] or steadyNames():
-            steadySetupCase(name, nodes, tets, V)
-        sys.exit()
-    names = sys.argv[2:] or sorted(
-        n for n in os.listdir(os.path.join(common.UNSTEADY, 'runs'))
-        if os.path.exists(os.path.join(common.UNSTEADY, 'runs', n, 'DONE')))
+    if args[0] == 'steady':
+        caseRoot, setupOne, names = steadyDir, steadySetupCase, args[1:] or steadyNames()
+    else:
+        caseRoot, setupOne = os.path.join(oracleDir, 'runs'), setupCase
+        names = args[1:] or sorted(
+            n for n in os.listdir(os.path.join(common.UNSTEADY, 'runs'))
+            if os.path.exists(os.path.join(common.UNSTEADY, 'runs', n, 'DONE')))
     for name in names:
-        setupCase(name, nodes, tets, V)
+        if not (onlyNew and os.path.exists(os.path.join(caseRoot, name, 'FluidFile'))):
+            setupOne(name, nodes, tets, V)

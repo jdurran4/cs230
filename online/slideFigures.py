@@ -10,8 +10,14 @@ and online runs with the steady and the combined (unsteady + steady3d) networks.
               the interior z-level). Resolved: interpolated from its last AMR mesh along the
               same x. Freestream (u/U = 1) is what a coarse run without the cable gives.
 
-Usage (from the repo root):  python -m online.slideFigures
-Writes DATA/unsteady/online/slides/{forces,wake,wakeNear}.{pdf,png}.
+  forcesMeshes.pdf  Cd(t), Cl(t) of the per-mesh 64x64 networks (M1.5 held out) online on
+              each coarse mesh D/h = 4.8, 2.4, 1.2, 0.6 (the rows of the ParaView movie),
+              with the resolved run and its oracle (D/h 1.2, dashed). A run that stopped
+              early ends with an x.
+
+Usage (from the repo root):  python -m online.slideFigures [meshes]
+Writes DATA/unsteady/online/slides/{forces,wake,wakeNear}.{pdf,png}, or with `meshes`
+only forcesMeshes.{pdf,png}.
 """
 import glob
 import os
@@ -40,6 +46,8 @@ style = {'resolved': dict(color=grey, lw=2.2),
          'oracle': dict(color=unsteady.colors[0], lw=1.8, ls='--'),
          'steadyNet': dict(color=unsteady.colors[1], lw=1.8),
          'xy_comb_noM15': dict(color=unsteady.colors[2], lw=1.8)}
+# per-mesh runs: categorical slots 2-5 (slot 1, blue, is the oracle)
+meshColors = [unsteady.colors[1], unsteady.colors[2], unsteady.colors[3], '#8a5cd6']
 outDir = os.path.join(common.UNSTEADY, 'online', 'slides')
 
 
@@ -83,6 +91,55 @@ def forces():
     ax[0].legend(frameon=False, fontsize=9)
     fig.tight_layout()
     save(fig, 'forces')
+
+
+# ============= Cd, Cl per mesh ======================================================
+meshes = (4.8, 2.4, 1.2, 0.6)        # finest first, as in the movie
+oracleMesh = 1.2
+
+
+def forcesMeshes():
+    curves = {}
+    for Dh in meshes:
+        oracle.setMesh(Dh)
+        fs, c = unsteady.forceCurves(name, [f'xy_Dh{Dh:g}_h64_held4'])
+        curves[Dh] = c[f'xy_Dh{Dh:g}_h64_held4']
+        if Dh == oracleMesh:
+            curves['oracle'] = c['oracle (true)']
+    resolvedDir = os.path.join(newRun.runsDir, name)
+    geo = meshGen.loadGeometry(resolvedDir)
+    hist = np.loadtxt(os.path.join(resolvedDir, 'postpro', 'LiftandDrag'))
+    qDs = 0.5 * fs['rho'] * fs['U'] ** 2 * geo['D'] * geo['span']
+    tR, CdR, ClR = hist[:, 1] / fs['tRef'], hist[:, 4] / qDs, hist[:, 5] / qDs
+    tEnd = tR[-1]
+
+    fig, ax = plt.subplots(1, 2, figsize=(10, 3.8))
+    for a, q, R in ((ax[0], 1, CdR), (ax[1], 2, ClR)):
+        a.plot(tR, R, label='resolved (HDM)', **style['resolved'])
+        c = curves['oracle']
+        a.plot(c[0] / fs['tRef'], c[q], label=f'oracle (D/h {oracleMesh:g})', **style['oracle'])
+        for m, Dh in enumerate(meshes):
+            c = curves[Dh]
+            t = c[0] / fs['tRef']
+            col = meshColors[m]
+            a.plot(t, c[q], color=col, lw=1.6, label=f'NN online, D/h {Dh:g}')
+            if t[-1] < tEnd - 1.0:
+                a.plot(t[-1], c[q][-1], 'x', color=col, ms=8, mew=2)
+                print(f'D/h {Dh:g} stops at t = {t[-1]:.1f} D/U')
+        a.set_xlabel('t  [D/U]')
+        tidy(a)
+    ax[0].set_ylabel('$C_d$')
+    ax[1].set_ylabel('$C_l$')
+    ax[0].set_ylim(bottom=0)
+    handles, labels = ax[0].get_legend_handles_labels()
+    fig.legend(handles, labels, frameon=False, fontsize=9, ncol=3, loc='lower center',
+               bbox_to_anchor=(0.5, -0.14))
+    fig.tight_layout()
+    save(fig, 'forcesMeshes')
+    for Dh in meshes:
+        c = curves[Dh]
+        print(f'D/h {Dh:g}: Cd, Cl at t_end {c[1][-1]:.3f} {c[2][-1]:+.3f}')
+    print(f'resolved: {CdR[-1]:.3f} {ClR[-1]:+.3f}')
 
 
 # ============= Wake profiles ========================================================
@@ -147,6 +204,10 @@ def wake(xs, stem):
 
 
 if __name__ == '__main__':
+    import sys
+    if sys.argv[1:] == ['meshes']:
+        forcesMeshes()
+        sys.exit()
     forces()
     for stem, xs in wakeX.items():
         wake(xs, stem)
