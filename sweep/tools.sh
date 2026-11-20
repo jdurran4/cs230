@@ -1,5 +1,6 @@
 # AERO tool locations, sourced by preprocess.sh and each run's run.sh / postpro.sh.
 # Picks the tools for the machine it runs on, so the same file can be synced to the cluster.
+# Paths below are specific to the Stanford FRG machines: edit them for your own AERO-F build.
 case "$(hostname)" in
     independence2*|ind2-*)
         # Independence2: rtezaur's builds (Intel 2018; run.sbatch loads the modules).
